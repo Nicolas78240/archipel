@@ -1,0 +1,46 @@
+# Node
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.env
+.env.local
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+coverage.xml
+coverage.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Claude / MCP
+.playwright-mcp/
+
+# Claude local overrides
+.claude/settings.local.json
+
+# Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Archipel runtime
+.archipel/audit.log
+.archipel/subagent-contracts/
+.coverage
+uv.lock

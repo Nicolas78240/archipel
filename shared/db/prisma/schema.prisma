@@ -1,0 +1,23 @@
+// Archipel — Prisma Schema
+// Conventions : snake_case pour les champs DB, PascalCase pour les modèles
+// Jamais de migration manuelle : toujours `prisma migrate dev`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle d'exemple — à remplacer par les modèles du projet
+model Project {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  created_at  DateTime @default(now()) @map("created_at")
+  updated_at  DateTime @updatedAt @map("updated_at")
+
+  @@map("projects")
+}

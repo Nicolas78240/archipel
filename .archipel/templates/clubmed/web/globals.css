@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Trident spacing : 1px = 1 unité (wrapper contenu app : --spacing: 0.25rem) */
+:root {
+  --spacing: 0.0625rem;
+}
+
+/* Tokens couleurs Trident */
+@theme {
+  --color-ultramarine: #1E2643;
+  --color-saffron:     #FDBE00;
+  --color-lightSand:   #F6EFE7;
+  --color-lightGrey:   #CCCCCC;
+  --color-darkGrey:    #333333;
+  --color-middleGrey:  #666666;
+  --color-pearl:       #F7F7F7;
+  --radius-pill:       9999px;
+  --font-sans:         Inter, system-ui, sans-serif;
+}

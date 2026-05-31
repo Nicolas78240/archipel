@@ -1,0 +1,196 @@
+## Archipel — Pipeline GitLab CI (clubmed → Azure)
+## Strategy: staging → validation manuelle → prod
+
+variables:
+  AZURE_REGION: francecentral
+  WEB_APP: "${PROJECT_NAME}-web"
+  API_APP: "${PROJECT_NAME}-api"
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+stages:
+  - test
+  - scan
+  - build
+  - deploy-staging
+  - promote-prod
+
+# ─── Templates ────────────────────────────────────────────────────────────────
+
+.python-cache: &python-cache
+  cache:
+    key: "$CI_COMMIT_REF_SLUG-python"
+    paths:
+      - .pip-cache/
+
+.node-cache: &node-cache
+  cache:
+    key: "$CI_COMMIT_REF_SLUG-node"
+    paths:
+      - apps/web/node_modules/
+
+# ─── Test ─────────────────────────────────────────────────────────────────────
+
+test:web:
+  stage: test
+  image: node:22-alpine
+  <<: *node-cache
+  script:
+    - cd apps/web
+    - npm ci
+    - npx eslint src/ --max-warnings 0
+    - npx tsc --noEmit
+    - npm run test:coverage
+  coverage: '/Lines\s*:\s*(\d+\.?\d*)%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: apps/web/coverage/cobertura-coverage.xml
+
+test:api:
+  stage: test
+  image: python:3.12-slim
+  <<: *python-cache
+  services:
+    - name: postgres:15
+      alias: postgres
+  variables:
+    POSTGRES_DB: archipel_test
+    POSTGRES_USER: archipel
+    POSTGRES_PASSWORD: archipel
+    DATABASE_URL: "postgresql+asyncpg://archipel:archipel@postgres:5432/archipel_test"
+  script:
+    - cd apps/api
+    - pip install --cache-dir=.pip-cache -r requirements.txt -r requirements-dev.txt
+    - ruff check . && ruff format --check .
+    - python -m pytest --cov=. --cov-report=xml --cov-fail-under=80
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: apps/api/coverage.xml
+
+# ─── Scan ─────────────────────────────────────────────────────────────────────
+
+scan:secrets:
+  stage: scan
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --no-git
+  allow_failure: false
+
+# ─── Build ────────────────────────────────────────────────────────────────────
+
+.build-template: &build-template
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  before_script:
+    - echo "$AZURE_ACR_PASSWORD" | docker login "${ACR_LOGIN_SERVER}" -u "$AZURE_ACR_USERNAME" --password-stdin
+  only:
+    - main
+    - merge_requests
+
+build:web:
+  <<: *build-template
+  script:
+    - |
+      IMAGE="${ACR_LOGIN_SERVER}/${PROJECT_NAME}/web:${CI_COMMIT_SHA}"
+      docker build -t "$IMAGE" apps/web/
+      docker push "$IMAGE"
+      echo "WEB_IMAGE=$IMAGE" >> build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+
+build:api:
+  <<: *build-template
+  script:
+    - |
+      IMAGE="${ACR_LOGIN_SERVER}/${PROJECT_NAME}/api:${CI_COMMIT_SHA}"
+      docker build -t "$IMAGE" apps/api/
+      docker push "$IMAGE"
+      echo "API_IMAGE=$IMAGE" >> build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+
+# ─── Deploy Staging ───────────────────────────────────────────────────────────
+
+deploy:staging:web:
+  stage: deploy-staging
+  image: mcr.microsoft.com/azure-cli:latest
+  environment:
+    name: staging
+    url: https://${WEB_APP}-staging.${AZURE_CONTAINER_APP_ENV_DOMAIN}
+  needs: [build:web, build:api, scan:secrets]
+  only:
+    - main
+  script:
+    - az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+    - az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+    - |
+      az containerapp update \
+        --name "${WEB_APP}-staging" \
+        --resource-group "rg-${PROJECT_NAME}-staging" \
+        --image "$WEB_IMAGE"
+    - |
+      FQDN=$(az containerapp show --name "${WEB_APP}-staging" --resource-group "rg-${PROJECT_NAME}-staging" --query "properties.configuration.ingress.fqdn" -o tsv)
+      curl -f "https://$FQDN/health" --retry 5 --retry-delay 10
+
+deploy:staging:api:
+  stage: deploy-staging
+  image: mcr.microsoft.com/azure-cli:latest
+  environment:
+    name: staging
+    url: https://${API_APP}-staging.${AZURE_CONTAINER_APP_ENV_DOMAIN}
+  needs: [build:web, build:api, scan:secrets]
+  only:
+    - main
+  script:
+    - az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+    - az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+    - |
+      az containerapp update \
+        --name "${API_APP}-staging" \
+        --resource-group "rg-${PROJECT_NAME}-staging" \
+        --image "$API_IMAGE"
+    - |
+      FQDN=$(az containerapp show --name "${API_APP}-staging" --resource-group "rg-${PROJECT_NAME}-staging" --query "properties.configuration.ingress.fqdn" -o tsv)
+      curl -f "https://$FQDN/health" --retry 5 --retry-delay 10
+
+# ─── Promote to Prod ──────────────────────────────────────────────────────────
+
+promote:prod:
+  stage: promote-prod
+  image: mcr.microsoft.com/azure-cli:latest
+  environment:
+    name: production
+    url: https://${WEB_APP}.${AZURE_CONTAINER_APP_ENV_DOMAIN}
+  needs: [deploy:staging:web, deploy:staging:api]
+  only:
+    - main
+  when: manual   # Validation manuelle obligatoire
+  script:
+    - az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+    - az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+    - |
+      az containerapp update \
+        --name "$WEB_APP" \
+        --resource-group "rg-${PROJECT_NAME}-prod" \
+        --image "$WEB_IMAGE"
+    - |
+      az containerapp update \
+        --name "$API_APP" \
+        --resource-group "rg-${PROJECT_NAME}-prod" \
+        --image "$API_IMAGE"
+    - |
+      WEB_FQDN=$(az containerapp show --name "$WEB_APP" --resource-group "rg-${PROJECT_NAME}-prod" --query "properties.configuration.ingress.fqdn" -o tsv)
+      API_FQDN=$(az containerapp show --name "$API_APP" --resource-group "rg-${PROJECT_NAME}-prod" --query "properties.configuration.ingress.fqdn" -o tsv)
+      curl -f "https://$WEB_FQDN/health" --retry 5 --retry-delay 10
+      curl -f "https://$API_FQDN/health" --retry 5 --retry-delay 10

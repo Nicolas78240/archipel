@@ -1,0 +1,78 @@
+# Archipel — Template de configuration Azure (mode clubmed)
+# Copier et adapter dans .archipel/project.json après /init
+
+project:
+  # Rempli automatiquement par /init depuis project.json
+  name: "{{ project.name }}"
+  type: clubmed
+
+azure:
+  subscription_id: "{{ azure.subscription_id }}"
+  resource_group: "rg-{{ project.name }}-{{ env }}"
+  location: francecentral
+
+  # Container Apps (apps/web + apps/api)
+  container_apps:
+    environment_name: "cae-{{ project.name }}"
+    log_analytics_workspace: "law-{{ project.name }}"
+
+    web:
+      name: "ca-{{ project.name }}-web"
+      image: "{{ acr.login_server }}/web:{{ git.sha }}"
+      min_replicas: 1
+      max_replicas: 10
+      cpu: 0.5
+      memory: 1Gi
+      target_port: 3000
+      env_vars:
+        NODE_ENV: production
+        DATABASE_URL: "{{ secrets.database_url }}"
+
+    api:
+      name: "ca-{{ project.name }}-api"
+      image: "{{ acr.login_server }}/api:{{ git.sha }}"
+      min_replicas: 1
+      max_replicas: 10
+      cpu: 0.5
+      memory: 1Gi
+      target_port: 8000
+      env_vars:
+        ENVIRONMENT: production
+        DATABASE_URL: "{{ secrets.database_url }}"
+
+  # Azure Database for PostgreSQL
+  postgresql:
+    server_name: "pg-{{ project.name }}"
+    sku: B_Standard_B1ms    # Adapter selon charge
+    version: "15"
+    storage_mb: 32768
+    backup_retention_days: 7
+    geo_redundant_backup: Disabled
+    ssl_enforcement: Enabled
+
+  # Azure Container Registry
+  acr:
+    name: "acr{{ project.name | replace('-', '') }}"
+    sku: Basic
+    login_server: "acr{{ project.name | replace('-', '') }}.azurecr.io"
+
+  # Key Vault
+  key_vault:
+    name: "kv-{{ project.name }}"
+    sku: standard
+    secrets:
+      - database_url
+      - api_secret_key
+
+# Deploy strategy: staging → validation manuelle → prod
+deploy:
+  strategy: staging-prod
+  environments:
+    staging:
+      resource_group: "rg-{{ project.name }}-staging"
+      health_check_path: /health
+    production:
+      resource_group: "rg-{{ project.name }}-prod"
+      health_check_path: /health
+  manual_approval: true
+  rollback_on_failure: true

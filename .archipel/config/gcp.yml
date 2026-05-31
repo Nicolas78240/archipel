@@ -1,0 +1,70 @@
+# Archipel — Template de configuration GCP (mode perso)
+# Copier et adapter dans .archipel/project.json après /init
+
+project:
+  # Rempli automatiquement par /init depuis project.json
+  name: "{{ project.name }}"
+  type: perso
+
+gcp:
+  project_id: "{{ gcp.project_id }}"       # Ex: archipel-myproject-prod
+  region: europe-west1
+  zone: europe-west1-b
+
+  # Cloud Run (apps/web + apps/api)
+  cloud_run:
+    web:
+      service_name: "{{ project.name }}-web"
+      image: "gcr.io/{{ gcp.project_id }}/web:{{ git.sha }}"
+      min_instances: 0
+      max_instances: 10
+      memory: 512Mi
+      cpu: 1
+      port: 3000
+      env_vars:
+        NODE_ENV: production
+        DATABASE_URL: "{{ secrets.database_url }}"
+
+    api:
+      service_name: "{{ project.name }}-api"
+      image: "gcr.io/{{ gcp.project_id }}/api:{{ git.sha }}"
+      min_instances: 0
+      max_instances: 10
+      memory: 512Mi
+      cpu: 1
+      port: 8000
+      env_vars:
+        ENVIRONMENT: production
+        DATABASE_URL: "{{ secrets.database_url }}"
+
+  # Cloud SQL (PostgreSQL)
+  cloud_sql:
+    instance_name: "{{ project.name }}-pg"
+    database_version: POSTGRES_15
+    tier: db-f1-micro          # Adapter selon charge
+    region: europe-west1
+    deletion_protection: true
+    backup:
+      enabled: true
+      start_time: "03:00"
+      retained_backups: 7
+
+  # Artifact Registry
+  artifact_registry:
+    repository: "{{ project.name }}-images"
+    location: europe-west1
+    format: DOCKER
+
+  # Secret Manager
+  secrets:
+    - name: database_url
+      description: "PostgreSQL connection string"
+    - name: api_secret_key
+      description: "FastAPI secret key"
+
+# Deploy strategy: direct → prod (pas de staging en mode perso)
+deploy:
+  strategy: direct
+  health_check_path: /health
+  health_check_timeout: 60s
+  rollback_on_failure: true

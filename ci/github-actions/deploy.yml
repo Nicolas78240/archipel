@@ -1,0 +1,187 @@
+name: Deploy — Archipel (perso → GCP)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  GCP_REGION: europe-west1
+  WEB_SERVICE: ${{ vars.PROJECT_NAME }}-web
+  API_SERVICE: ${{ vars.PROJECT_NAME }}-api
+
+jobs:
+  test:
+    name: Tests & Lint
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: archipel_test
+          POSTGRES_USER: archipel
+          POSTGRES_PASSWORD: archipel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: apps/api/requirements*.txt
+
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint — TypeScript
+        working-directory: apps/web
+        run: npx eslint src/ --max-warnings 0
+
+      - name: Lint — Python
+        working-directory: apps/api
+        run: ruff check . && ruff format --check .
+
+      - name: Type check — TypeScript
+        working-directory: apps/web
+        run: npx tsc --noEmit
+
+      - name: Test — Web (Jest)
+        working-directory: apps/web
+        run: npm run test:coverage
+
+      - name: Test — API (pytest)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql+asyncpg://archipel:archipel@localhost:5432/archipel_test
+        run: python -m pytest --cov=. --cov-report=xml --cov-fail-under=80
+
+  scan-secrets:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-web:
+    name: Deploy Web → Cloud Run
+    needs: [test, scan-secrets]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+
+      - name: Build & Push Web image
+        working-directory: apps/web
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.PROJECT_NAME }}-images/web:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy Web to Cloud Run
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.PROJECT_NAME }}-images/web:${{ github.sha }}"
+          gcloud run deploy ${{ env.WEB_SERVICE }} \
+            --image "$IMAGE" \
+            --region ${{ env.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-secrets="DATABASE_URL=database_url:latest" \
+            --min-instances 0 \
+            --max-instances 10
+
+      - name: Health check
+        run: |
+          URL=$(gcloud run services describe ${{ env.WEB_SERVICE }} --region ${{ env.GCP_REGION }} --format="value(status.url)")
+          curl -f "$URL/health" --retry 5 --retry-delay 5
+
+  deploy-api:
+    name: Deploy API → Cloud Run
+    needs: [test, scan-secrets]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+
+      - name: Build & Push API image
+        working-directory: apps/api
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.PROJECT_NAME }}-images/api:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy API to Cloud Run
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.PROJECT_NAME }}-images/api:${{ github.sha }}"
+          gcloud run deploy ${{ env.API_SERVICE }} \
+            --image "$IMAGE" \
+            --region ${{ env.GCP_REGION }} \
+            --platform managed \
+            --no-allow-unauthenticated \
+            --set-secrets="DATABASE_URL=database_url:latest" \
+            --min-instances 0 \
+            --max-instances 10
+
+      - name: Health check
+        run: |
+          URL=$(gcloud run services describe ${{ env.API_SERVICE }} --region ${{ env.GCP_REGION }} --format="value(status.url)")
+          curl -f "$URL/health" --retry 5 --retry-delay 5
