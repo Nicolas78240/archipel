@@ -179,33 +179,76 @@ flowchart LR
     style H10 fill:#1e3a5f,color:#fff
 ```
 
-### Gates bloquants vs avertissements
+### Gates bloquants
 
 ```mermaid
-flowchart LR
-    subgraph BLOCK["🔴 Bloquants — exit 2"]
-        B1["git push --force sur main/master"]
-        B2["Lecture de .env / *.pem par un sous-agent"]
-        B3["docker compose down -v"]
-        B4["DROP TABLE / DROP COLUMN en SQL direct"]
-        B5["architect sans IMPL-*.md"]
-        B6["creative-director sans CREATIVE-BRIEF.md"]
-        B7["design-system sans DESIGN-SYSTEM.md"]
-        B8["ui-designer sans UI-SPECS.md ≥ 50 lignes"]
-    end
+flowchart TD
+    GIT["🔒 Git"] --> B1
+    GIT --> B2
+    B1["git push --force sur main/master\n→ exit 2 — opération annulée"]
+    B2["Secrets détectés par gitleaks\n→ exit 2 — corriger avant de pusher"]
 
-    subgraph WARN["🟡 Avertissements — contexte injecté"]
-        W1["rm -rf hors build/cache → permissionDecision: ask"]
-        W2["alembic downgrade → permissionDecision: ask"]
-        W3["Migration Alembic contient DROP"]
-        W4["Modification de components/ui/ (shadcn)"]
-        W5["coverage < 80% après test-writer"]
-        W6["Scope violation : agent modifie hors son périmètre"]
-        W7["PostToolBatch > 20% d'échecs"]
-    end
+    DB["🗄️ Base de données"] --> B3
+    DB --> B4
+    B3["docker compose down -v\n→ exit 2 — suppression volumes PostgreSQL"]
+    B4["DROP TABLE / DROP COLUMN en SQL direct\n→ exit 2 — utiliser Alembic"]
 
-    style BLOCK fill:#5f1e1e,color:#fff,stroke:#8b2222
-    style WARN fill:#5f3d00,color:#fff,stroke:#8b5e00
+    SEC["🔐 Sécurité"] --> B5
+    B5["Lecture de .env / *.pem par un sous-agent\n→ exit 2 — accès secret interdit"]
+
+    AGENTS["🤖 Livrables agents"] --> B6
+    AGENTS --> B7
+    AGENTS --> B8
+    AGENTS --> B9
+    B6["architect terminé sans IMPL-*.md\n→ exit 2 — plan obligatoire"]
+    B7["creative-director sans CREATIVE-BRIEF.md\n→ exit 2 — brief obligatoire"]
+    B8["design-system sans DESIGN-SYSTEM.md\n→ exit 2 — design system obligatoire"]
+    B9["ui-designer sans UI-SPECS.md ≥ 50 lignes\n→ exit 2 — specs trop courtes"]
+
+    style GIT fill:#8b1a1a,color:#fff,stroke:#c0392b
+    style DB fill:#8b1a1a,color:#fff,stroke:#c0392b
+    style SEC fill:#8b1a1a,color:#fff,stroke:#c0392b
+    style AGENTS fill:#8b1a1a,color:#fff,stroke:#c0392b
+    style B1 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B2 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B3 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B4 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B5 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B6 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B7 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B8 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style B9 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+```
+
+### Avertissements — confirmation requise ou contexte injecté
+
+```mermaid
+flowchart TD
+    CONFIRM["⚠️ Confirmation requise\npermissionDecision: ask"] --> W1
+    CONFIRM --> W2
+    W1["rm -rf hors dossiers build/cache\non-bash.sh intercepte avant exécution"]
+    W2["alembic downgrade\non-bash.sh intercepte avant exécution"]
+
+    INJECT["💬 Contexte injecté\nClaude averti, peut continuer"] --> W3
+    INJECT --> W4
+    INJECT --> W5
+    INJECT --> W6
+    INJECT --> W7
+    W3["Migration Alembic contient DROP\non-write.sh détecte dans les versions/"]
+    W4["Modification de components/ui/ — primitives shadcn\non-write.sh protège contre la modification directe"]
+    W5["coverage < 80% après test-writer\non-subagent-stop.sh mesure et signale"]
+    W6["Scope violation : agent modifie hors son périmètre\non-subagent-stop.sh compare git diff vs contrat"]
+    W7["PostToolBatch > 20% d'échecs parallèles\non-post-tool-batch.sh checkpoint avant milestone suivant"]
+
+    style CONFIRM fill:#7a5200,color:#fff,stroke:#e67e00
+    style INJECT fill:#4a4a00,color:#fff,stroke:#aaaa00
+    style W1 fill:#5f3d00,color:#ffe0a0,stroke:#e67e00
+    style W2 fill:#5f3d00,color:#ffe0a0,stroke:#e67e00
+    style W3 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style W4 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style W5 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style W6 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style W7 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
 ```
 
 ---
