@@ -179,36 +179,20 @@ flowchart LR
     style H10 fill:#1e3a5f,color:#fff
 ```
 
-### Gates bloquants
+### Gates bloquants — `exit 2`, opération annulée
 
 ```mermaid
-flowchart TD
-    GIT["🔒 Git"] --> B1
-    GIT --> B2
-    B1["git push --force sur main/master\n→ exit 2 — opération annulée"]
-    B2["Secrets détectés par gitleaks\n→ exit 2 — corriger avant de pusher"]
+flowchart LR
+    B1["🔒 git push --force\nsur main/master"] --> X1["exit 2"]
+    B2["🔍 Secrets détectés\npar gitleaks"] --> X2["exit 2"]
+    B3["🗄️ docker compose down -v\nsuppression volumes DB"] --> X3["exit 2"]
+    B4["⚠️ DROP TABLE / DROP COLUMN\nen SQL direct"] --> X4["exit 2"]
+    B5["🔐 Lecture .env / *.pem\npar un sous-agent"] --> X5["exit 2"]
+    B6["🤖 architect terminé\nsans IMPL-*.md"] --> X6["exit 2"]
+    B7["🎨 creative-director\nsans CREATIVE-BRIEF.md"] --> X7["exit 2"]
+    B8["🎨 design-system\nsans DESIGN-SYSTEM.md"] --> X8["exit 2"]
+    B9["🎨 ui-designer\nsans UI-SPECS.md ≥ 50 lignes"] --> X9["exit 2"]
 
-    DB["🗄️ Base de données"] --> B3
-    DB --> B4
-    B3["docker compose down -v\n→ exit 2 — suppression volumes PostgreSQL"]
-    B4["DROP TABLE / DROP COLUMN en SQL direct\n→ exit 2 — utiliser Alembic"]
-
-    SEC["🔐 Sécurité"] --> B5
-    B5["Lecture de .env / *.pem par un sous-agent\n→ exit 2 — accès secret interdit"]
-
-    AGENTS["🤖 Livrables agents"] --> B6
-    AGENTS --> B7
-    AGENTS --> B8
-    AGENTS --> B9
-    B6["architect terminé sans IMPL-*.md\n→ exit 2 — plan obligatoire"]
-    B7["creative-director sans CREATIVE-BRIEF.md\n→ exit 2 — brief obligatoire"]
-    B8["design-system sans DESIGN-SYSTEM.md\n→ exit 2 — design system obligatoire"]
-    B9["ui-designer sans UI-SPECS.md ≥ 50 lignes\n→ exit 2 — specs trop courtes"]
-
-    style GIT fill:#8b1a1a,color:#fff,stroke:#c0392b
-    style DB fill:#8b1a1a,color:#fff,stroke:#c0392b
-    style SEC fill:#8b1a1a,color:#fff,stroke:#c0392b
-    style AGENTS fill:#8b1a1a,color:#fff,stroke:#c0392b
     style B1 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
     style B2 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
     style B3 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
@@ -218,37 +202,43 @@ flowchart TD
     style B7 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
     style B8 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
     style B9 fill:#5f1e1e,color:#ffcccc,stroke:#c0392b
+    style X1 fill:#c0392b,color:#fff,stroke:#922b21
+    style X2 fill:#c0392b,color:#fff,stroke:#922b21
+    style X3 fill:#c0392b,color:#fff,stroke:#922b21
+    style X4 fill:#c0392b,color:#fff,stroke:#922b21
+    style X5 fill:#c0392b,color:#fff,stroke:#922b21
+    style X6 fill:#c0392b,color:#fff,stroke:#922b21
+    style X7 fill:#c0392b,color:#fff,stroke:#922b21
+    style X8 fill:#c0392b,color:#fff,stroke:#922b21
+    style X9 fill:#c0392b,color:#fff,stroke:#922b21
 ```
 
-### Avertissements — confirmation requise ou contexte injecté
+### Avertissements — confirmation ou contexte injecté
 
 ```mermaid
-flowchart TD
-    CONFIRM["⚠️ Confirmation requise\npermissionDecision: ask"] --> W1
-    CONFIRM --> W2
-    W1["rm -rf hors dossiers build/cache\non-bash.sh intercepte avant exécution"]
-    W2["alembic downgrade\non-bash.sh intercepte avant exécution"]
+flowchart LR
+    W1["⚠️ rm -rf\nhors build/cache"] --> A1["permissionDecision: ask\non-bash.sh"]
+    W2["⚠️ alembic downgrade"] --> A2["permissionDecision: ask\non-bash.sh"]
+    W3["💬 Migration Alembic\ncontient DROP"] --> A3["contexte injecté\non-write.sh"]
+    W4["💬 Modification\ncomponents/ui/ shadcn"] --> A4["contexte injecté\non-write.sh"]
+    W5["💬 coverage < 80%\naprès test-writer"] --> A5["contexte injecté\non-subagent-stop.sh"]
+    W6["💬 Scope violation\nagent hors périmètre"] --> A6["contexte injecté\non-subagent-stop.sh"]
+    W7["💬 PostToolBatch\n> 20% d'échecs"] --> A7["contexte injecté\non-post-tool-batch.sh"]
 
-    INJECT["💬 Contexte injecté\nClaude averti, peut continuer"] --> W3
-    INJECT --> W4
-    INJECT --> W5
-    INJECT --> W6
-    INJECT --> W7
-    W3["Migration Alembic contient DROP\non-write.sh détecte dans les versions/"]
-    W4["Modification de components/ui/ — primitives shadcn\non-write.sh protège contre la modification directe"]
-    W5["coverage < 80% après test-writer\non-subagent-stop.sh mesure et signale"]
-    W6["Scope violation : agent modifie hors son périmètre\non-subagent-stop.sh compare git diff vs contrat"]
-    W7["PostToolBatch > 20% d'échecs parallèles\non-post-tool-batch.sh checkpoint avant milestone suivant"]
-
-    style CONFIRM fill:#7a5200,color:#fff,stroke:#e67e00
-    style INJECT fill:#4a4a00,color:#fff,stroke:#aaaa00
-    style W1 fill:#5f3d00,color:#ffe0a0,stroke:#e67e00
-    style W2 fill:#5f3d00,color:#ffe0a0,stroke:#e67e00
-    style W3 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
-    style W4 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
-    style W5 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
-    style W6 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
-    style W7 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style W1 fill:#7a5200,color:#ffe0a0,stroke:#e67e00
+    style W2 fill:#7a5200,color:#ffe0a0,stroke:#e67e00
+    style W3 fill:#4a4a00,color:#ffff99,stroke:#aaaa00
+    style W4 fill:#4a4a00,color:#ffff99,stroke:#aaaa00
+    style W5 fill:#4a4a00,color:#ffff99,stroke:#aaaa00
+    style W6 fill:#4a4a00,color:#ffff99,stroke:#aaaa00
+    style W7 fill:#4a4a00,color:#ffff99,stroke:#aaaa00
+    style A1 fill:#5f3d00,color:#ffe0a0,stroke:#e67e00
+    style A2 fill:#5f3d00,color:#ffe0a0,stroke:#e67e00
+    style A3 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style A4 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style A5 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style A6 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
+    style A7 fill:#3d3d00,color:#ffff99,stroke:#aaaa00
 ```
 
 ---
