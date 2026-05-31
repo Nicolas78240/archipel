@@ -1,6 +1,6 @@
 # Archipel — Software Factory
 
-Forge personnelle de Nicolas Girault (Head of Engineering, Club Med gMDT).
+Forge personnelle de Nicolas Caussin (Head of Engineering, Club Med gMDT).
 Couvre ses side projects personnels et Club Med-adjacents.
 Seul orchestrateur : Nicolas. Pas d'équipe, pas de process d'approbation.
 

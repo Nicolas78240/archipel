@@ -362,4 +362,4 @@ Audit `2026-05-31` — **8,3 / 10**
 
 ---
 
-*Archipel — forge de Nicolas Girault*
+*Archipel — forge de Nicolas Caussin*
