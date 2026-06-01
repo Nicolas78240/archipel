@@ -1,0 +1,6 @@
+{
+  "name": "Archipel",
+  "type": "perso",
+  "cloud": "GCP",
+  "description": "Software Factory — orchestrateur de builds IA"
+}

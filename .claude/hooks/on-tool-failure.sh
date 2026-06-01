@@ -2,6 +2,16 @@
 # Hook : PostToolUseFailure
 # Rôle : Capturer tout échec de tool et alerter l'orchestrateur explicitement.
 
+# ── Archipel Monitor feed ──────────────────────────────────────────────────
+_MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+_MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
+_MONITOR_TS=$(date -u +%H:%M:%S)
+_MONITOR_PROJ=$(python3 -c \
+  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
+  2>/dev/null || echo "?")
+_monitor_push() { echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true; }
+# ──────────────────────────────────────────────────────────────────────────
+
 INPUT=$(cat)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -22,6 +32,9 @@ try:
 except:
     print(json.dumps({'systemMessage': 'TOOL FAILURE : details unavailable'}))
 PYEOF
+
+TOOL_NAME_VAL=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tool_name', d.get('tool', 'unknown')))" 2>/dev/null || echo "unknown")
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-tool-failure\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"TOOL FAILURE: $TOOL_NAME_VAL\"}"
 
 # Audit log séparé (stderr pour ne pas polluer stdout JSON)
 python3 << PYEOF2 >> "$PROJECT_DIR/.archipel/audit.log" 2>/dev/null

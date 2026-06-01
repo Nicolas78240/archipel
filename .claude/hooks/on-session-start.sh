@@ -2,6 +2,16 @@
 # Hook : SessionStart
 # Rôle : Charger automatiquement le contexte du projet au demarrage.
 
+# ── Archipel Monitor feed ──────────────────────────────────────────────────
+_MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+_MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
+_MONITOR_TS=$(date -u +%H:%M:%S)
+_MONITOR_PROJ=$(python3 -c \
+  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
+  2>/dev/null || echo "?")
+_monitor_push() { echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true; }
+# ──────────────────────────────────────────────────────────────────────────
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 export PROJECT_JSON=$(cat "$PROJECT_DIR/.archipel/project.json" 2>/dev/null || echo "")
@@ -52,5 +62,7 @@ if parts:
     context = '\n'.join(parts)
     print(json.dumps({'systemMessage': context}))
 PYEOF
+
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-session-start\",\"type\":\"info\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"Session demarree\"}"
 
 exit 0

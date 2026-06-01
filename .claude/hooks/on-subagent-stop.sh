@@ -2,6 +2,16 @@
 # Hook : SubagentStop
 # Rôle : Vérifier les livrables obligatoires + respecter le contrat de scope.
 
+# ── Archipel Monitor feed ──────────────────────────────────────────────────
+_MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+_MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
+_MONITOR_TS=$(date -u +%H:%M:%S)
+_MONITOR_PROJ=$(python3 -c \
+  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
+  2>/dev/null || echo "?")
+_monitor_push() { echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true; }
+# ──────────────────────────────────────────────────────────────────────────
+
 INPUT=$(cat)
 AGENT_TYPE=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('agent_type', d.get('name', '')))" 2>/dev/null || echo "")
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -29,6 +39,7 @@ PYEOF
 fi
 
 echo "[$TIMESTAMP] SubagentStop agent=$AGENT_TYPE" >> "$PROJECT_DIR/.archipel/audit.log"
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-subagent-stop\",\"type\":\"ok\",\"project\":\"$_MONITOR_PROJ\",\"agent\":\"$AGENT_TYPE\",\"msg\":\"$AGENT_TYPE done\"}"
 
 LATEST_IMPL=$(find "$PROJECT_DIR/docs" -name "IMPL-*.md" 2>/dev/null | sort | tail -1)
 

@@ -103,6 +103,16 @@ Les autres agents écrivent dans `lessons.md` uniquement (si boucle déclenchée
 
 ---
 
+## Dashboard de monitoring
+
+- URL locale : http://localhost:3000/monitor
+- Serveur SSE : `npm run monitor` (port 3999, localhost only)
+- Feed : `tasks/live-events.jsonl` dans chaque projet (non versionné)
+- Projets enregistrés : `.archipel/projects.json`
+- Le dashboard watch automatiquement tous les projets bootstrappés
+
+---
+
 ## Agents spécialisés (`.claude/agents/`)
 
 Invoqués par les commandes orchestratrices via `Agent()`. Chacun a un contexte isolé.

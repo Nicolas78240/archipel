@@ -1,0 +1,12 @@
+{
+  "name": "archipel",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "monitor": "node tools/monitor.js",
+    "monitor:dev": "node --watch tools/monitor.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

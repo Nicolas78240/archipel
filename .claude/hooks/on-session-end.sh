@@ -2,6 +2,16 @@
 # Hook : SessionEnd
 # Rôle : Émettre une entrée de log dans session-log.md à chaque fin de session.
 
+# ── Archipel Monitor feed ──────────────────────────────────────────────────
+_MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+_MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
+_MONITOR_TS=$(date -u +%H:%M:%S)
+_MONITOR_PROJ=$(python3 -c \
+  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
+  2>/dev/null || echo "?")
+_monitor_push() { echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true; }
+# ──────────────────────────────────────────────────────────────────────────
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 SESSION_LOG="$PROJECT_DIR/tasks/session-log.md"
 DATE=$(date +%Y-%m-%d)
@@ -30,5 +40,7 @@ GIT_LINE=""
 ENTRY="\n### ${DATE} — SessionEnd\n**Build** : ${BUILD_LINE:-n/a}\n**Git** : ${GIT_LINE:-propre}\n"
 
 printf "$ENTRY" >> "$SESSION_LOG" 2>/dev/null
+
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-session-end\",\"type\":\"info\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"Session terminee\"}"
 
 exit 0

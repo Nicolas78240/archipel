@@ -2,6 +2,16 @@
 # Hook : PreToolUse (Bash)
 # Rôle : Bloquer les commandes dangereuses avant execution.
 
+# ── Archipel Monitor feed ──────────────────────────────────────────────────
+_MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+_MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
+_MONITOR_TS=$(date -u +%H:%M:%S)
+_MONITOR_PROJ=$(python3 -c \
+  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
+  2>/dev/null || echo "?")
+_monitor_push() { echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true; }
+# ──────────────────────────────────────────────────────────────────────────
+
 COMMAND="${TOOL_INPUT_command:-}"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
@@ -12,6 +22,7 @@ if echo "$COMMAND" | grep -q "git push" && echo "$COMMAND" | grep -q "\-\-force\
   CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
   if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
     echo "BLOQUE : git push --force sur $CURRENT_BRANCH est interdit" >&2
+    _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
     exit 2
   fi
 fi
@@ -21,6 +32,7 @@ if echo "$COMMAND" | grep -q "git push"; then
   if command -v gitleaks &>/dev/null; then
     gitleaks detect --no-git 2>/dev/null || {
       echo "BLOQUE : gitleaks a detecte des secrets — corriger avant de pusher" >&2
+      _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
       exit 2
     }
   fi
@@ -47,6 +59,7 @@ fi
 if echo "$COMMAND" | grep -q "docker compose down" && echo "$COMMAND" | grep -q "\-v\b"; then
   echo "BLOQUE : docker compose down -v supprime les volumes PostgreSQL (perte de donnees)" >&2
   echo "Utiliser 'docker compose down' sans -v pour arreter sans supprimer les donnees" >&2
+  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
   exit 2
 fi
 
@@ -54,6 +67,7 @@ fi
 if echo "$COMMAND" | grep -qiE "DROP TABLE|DROP COLUMN|TRUNCATE"; then
   echo "BLOQUE : operation SQL destructive detectee" >&2
   echo "Utiliser Alembic (migration versionnee) plutot que du SQL direct" >&2
+  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
   exit 2
 fi
 
@@ -71,5 +85,7 @@ print(json.dumps({
 PYEOF
   exit 0
 fi
+
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"ok\",\"project\":\"$_MONITOR_PROJ\",\"msg\":$(python3 -c "import sys,json;print(json.dumps(sys.argv[1][:80]))" "$COMMAND" 2>/dev/null || echo "\"bash\"")}"
 
 exit 0

@@ -2,6 +2,16 @@
 # Hook : Stop / StopFailure
 # Rôle : Verifications de fin de turn — tests, fichiers non commites, resume structure.
 
+# ── Archipel Monitor feed ──────────────────────────────────────────────────
+_MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+_MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
+_MONITOR_TS=$(date -u +%H:%M:%S)
+_MONITOR_PROJ=$(python3 -c \
+  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
+  2>/dev/null || echo "?")
+_monitor_push() { echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true; }
+# ──────────────────────────────────────────────────────────────────────────
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 HOOK_EVENT="${CLAUDE_HOOK_EVENT:-Stop}"
@@ -11,6 +21,7 @@ mkdir -p "$PROJECT_DIR/.archipel"
 # StopFailure : diagnostic immediat
 if [ "$HOOK_EVENT" = "StopFailure" ]; then
   echo "[$TIMESTAMP] StopFailure detected" >> "$PROJECT_DIR/.archipel/audit.log"
+  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-stop.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"StopFailure detecte\"}"
   python3 << 'PYEOF'
 import json
 msg = "STOP FAILURE detecte — le turn s'est termine en erreur. Consulter .archipel/audit.log pour les tool failures. Action : diagnostiquer la cause racine avant de relancer."
@@ -72,5 +83,7 @@ else:
 print(json.dumps({'systemMessage': ' | '.join(parts)}))
 PYEOF
 fi
+
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-stop.sh\",\"type\":\"success\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"Session stop — git:${UNCOMMITTED:-0} uncommitted\"}"
 
 exit 0

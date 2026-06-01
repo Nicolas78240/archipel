@@ -3,6 +3,16 @@
 # Rôle : Verifications immediates apres ecriture de fichiers.
 #        Format/lint, securite, coherence design system.
 
+# ── Archipel Monitor feed ──────────────────────────────────────────────────
+_MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+_MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
+_MONITOR_TS=$(date -u +%H:%M:%S)
+_MONITOR_PROJ=$(python3 -c \
+  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
+  2>/dev/null || echo "?")
+_monitor_push() { echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true; }
+# ──────────────────────────────────────────────────────────────────────────
+
 FILE="${TOOL_INPUT_file_path:-}"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
@@ -76,5 +86,7 @@ if [[ "$BASENAME" == ".env" || "$BASENAME" == ".env.local" ]]; then
     echo ".env semble contenir des valeurs reelles — verifier qu'il est dans .gitignore" >&2
   fi
 fi
+
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-write.sh\",\"type\":\"write\",\"project\":\"$_MONITOR_PROJ\",\"msg\":$(python3 -c "import sys,json;print(json.dumps(sys.argv[1]))" "$(basename $FILE) [write]" 2>/dev/null || echo "\"write\"")}"
 
 exit 0

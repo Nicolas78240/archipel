@@ -1,0 +1,22 @@
+{
+  "projects": [
+    {
+      "name": "GentilGantt",
+      "path": "/Users/caussni/Dev/GentilGantt",
+      "type": "clubmed",
+      "cloud": "Azure"
+    },
+    {
+      "name": "assistant",
+      "path": "/Users/caussni/Dev/assistant",
+      "type": "perso",
+      "cloud": "GCP"
+    },
+    {
+      "name": "gMDTPlanningv2",
+      "path": "/Users/caussni/Dev/gMDTPlanningv2",
+      "type": "clubmed",
+      "cloud": "Azure"
+    }
+  ]
+}

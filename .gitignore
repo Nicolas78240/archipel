@@ -44,3 +44,6 @@ Thumbs.db
 .archipel/subagent-contracts/
 .coverage
 uv.lock
+
+# Monitor feeds (non versionnés)
+tasks/live-events.jsonl

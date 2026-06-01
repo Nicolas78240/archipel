@@ -108,6 +108,39 @@ print('✅ Ports figés dans project.json')
 
 Ces ports sont utilisés dans `docker-compose.yml` et dans `.env`. Une fois figés, ils ne changent jamais pour ce projet — même si d'autres projets démarrent entre-temps.
 
+### Étape 2c — Enregistrer le projet dans Archipel Monitor
+
+Ajouter le projet dans `.archipel/projects.json` du repo Archipel source :
+
+```bash
+ARCHIPEL_HOME="${ARCHIPEL_HOME:-/Users/caussni/Dev/Archipel}"
+PROJECTS_FILE="$ARCHIPEL_HOME/.archipel/projects.json"
+PROJECT_PATH="$(pwd)"
+PROJECT_NAME="<nom du projet>"
+
+python3 << 'PYEOF'
+import json, os
+
+f = os.environ.get('PROJECTS_FILE', '')
+path = os.environ.get('PROJECT_PATH', '')
+name = os.environ.get('PROJECT_NAME', '')
+
+if not f or not os.path.exists(f):
+    print("⚠️  projects.json absent — monitor non mis à jour")
+else:
+    d = json.load(open(f))
+    projects = d.get('projects', [])
+    # Éviter les doublons
+    if not any(p['path'] == path for p in projects):
+        projects.append({'name': name, 'path': path})
+        d['projects'] = projects
+        json.dump(d, open(f, 'w'), indent=2)
+        print(f"✅ Projet '{name}' enregistré dans Archipel Monitor")
+    else:
+        print(f"✅ Projet '{name}' déjà enregistré")
+PYEOF
+```
+
 ### Étape 3 — Créer la structure monorepo
 
 ```bash
