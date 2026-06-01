@@ -5,6 +5,23 @@
 
 ---
 
+## Archipel Live — Dashboard temps réel
+
+Visualise en direct le pipeline, les agents, les hooks et les événements de chaque projet.
+
+![Archipel Live](tools/archipel-live-screenshot.png)
+
+```bash
+npm run monitor          # serveur SSE → http://localhost:3999
+cd apps/web && npm run dev   # dashboard  → http://localhost:3998/monitor
+```
+
+Mode démo (sans monitor) : `http://localhost:3998/monitor?demo=true`
+
+→ **[Documentation complète](tools/README.md)**
+
+---
+
 ## Vue d'ensemble
 
 Archipel est une **factory**, pas une application. Elle génère des projets complets (Next.js + FastAPI + PostgreSQL) via un pipeline d'agents IA spécialisés, gouvernés par des hooks déterministes.
