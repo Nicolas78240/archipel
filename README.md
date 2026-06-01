@@ -72,45 +72,167 @@ flowchart TD
 
 ## Architecture des agents
 
+38 agents spécialisés organisés en 10 couches. Le `build-orchestrator` les invoque dans l'ordre selon le contenu du plan `IMPL-*.md` — jamais en dur, toujours par détection contextuelle.
+
 ```mermaid
 flowchart TD
-    USER["👤 Nicolas"] --> BO
+    USER["👤 Nicolas Caussin"] --> BO
 
-    subgraph PIPELINE["/feature — Séquence d'exécution"]
-        BO["build-orchestrator\nOrchestre tout, ne code pas"] --> ARCH
-        ARCH["architect\n→ IMPL-*.md"] --> DEV
+    subgraph PIPELINE["/feature — Pipeline complet"]
+        BO["build-orchestrator\nOrchestre, ne code jamais"] --> ARCH
+        ARCH["architect → IMPL-*.md"]
 
-        subgraph DEV_PARALLEL["Développement parallèle"]
-            NX["nextjs-dev\n→ apps/web/"]
-            FA["fastapi-dev\n→ apps/api/"]
-            DB["db-dev\n→ shared/db/"]
+        ARCH --> DB_STEP
+        subgraph DB_STEP["DB (conditionnel)"]
+            DB["db-dev\nModèles + migrations"]
+            DBA["dba\nOptimisation requêtes"]
+            VDB["vector-db-dev\nEmbeddings + pgvector"]
         end
-        DEV --> DEV_PARALLEL
 
-        DEV_PARALLEL --> TW["test-writer\ncoverage ≥ 80%"]
-
-        TW --> REVIEW_PARALLEL
-
-        subgraph REVIEW_PARALLEL["Review parallèle — 5 dimensions"]
-            RS["review-security"]
-            RA["review-architecture"]
-            RP["review-performance"]
-            RM["review-maintainability"]
-            RR["review-resilience"]
+        DB_STEP --> DEV
+        subgraph DEV["Développement (parallèle)"]
+            NX["nextjs-dev\n+ vercel:nextjs patterns"]
+            FA["fastapi-dev"]
+            IOS["ios-dev"]
+            AND["android-dev"]
         end
+
+        DEV --> SPEC
+        subgraph SPEC["Agents spécialisés (détectés via IMPL)"]
+            AU["auth-dev\nJWT / Azure AD SSO"]
+            WS["websocket-dev\nReal-time / SSE"]
+            WK["worker-dev\nJobs async"]
+            CA["cache-dev\nRedis"]
+            IN["integration-dev\nWebhooks / APIs tierces"]
+            AG["api-gateway-dev\nNginx / rate limiting"]
+            AN["analytics-dev\nDashboards / time series"]
+        end
+
+        SPEC --> TW
+        subgraph TW["Tests (parallèle)"]
+            TW1["test-writer\ncoverage ≥ 80%"]
+            CT["contract-tester\nContrats API"]
+            PT["perf-tester\nk6 load tests"]
+            A11["accessibility\nWCAG 2.1 AA"]
+        end
+
+        TW --> REVIEW
+        subgraph REVIEW["Review 5 dimensions (parallèle)"]
+            RS["security"]
+            RA["architecture"]
+            RP["performance"]
+            RM["maintainability"]
+            RR["resilience"]
+        end
+
+        REVIEW --> OBS
+        subgraph OBS["Observabilité + Docs (parallèle)"]
+            MON["monitoring-dev\nOTel + Sentry/Azure Monitor"]
+            DOC["doc-writer\nOpenAPI + CHANGELOG + ADR"]
+        end
+
+        OBS --> COST["cost-analyzer\nCoût tokens + cloud"]
     end
 
-    subgraph DESIGN_PIPELINE["/design — Avant /feature"]
+    subgraph DESIGN["/design — Avant /feature"]
         CR["creative-director\n→ CREATIVE-BRIEF.md"]
         DSS["design-system\n→ DESIGN-SYSTEM.md"]
         UI["ui-designer\n→ UI-SPECS.md"]
+        DR["design-reviewer\nValidation post-impl"]
         CR --> DSS --> UI
+    end
+
+    subgraph INFRA["Infrastructure (conditionnel)"]
+        DEV2["devops\nDockerfiles + CI/CD"]
+        GCP["infra-gcp\nCloud Run + Cloud SQL"]
+        AZR["infra-azure\nContainer Apps + Azure DB"]
+        TF["terraform-dev\nIaC GCP/Azure"]
     end
 
     style BO fill:#1e3a5f,color:#fff
     style ARCH fill:#2d4a1e,color:#fff
-    style TW fill:#4a2d1e,color:#fff
+    style COST fill:#4a2d1e,color:#fff
 ```
+
+### Catalogue complet — 38 agents
+
+#### Orchestration
+| Agent | Rôle |
+|---|---|
+| `build-orchestrator` | Orchestre l'intégralité du build. Ne touche jamais au code. Délègue tout. |
+| `architect` | Produit `docs/IMPL-*.md` — le plan technique consommé par tous les agents dev. |
+
+#### Design
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `creative-director` | Direction visuelle, palette, typographie → `CREATIVE-BRIEF.md` | Si CREATIVE-BRIEF absent |
+| `design-system` | Tokens Tailwind, globals.css, composants métier → `DESIGN-SYSTEM.md` | Si DESIGN-SYSTEM absent |
+| `ui-designer` | Specs de composants ultra-précises, layout ASCII → `UI-SPECS.md` | Si UI-SPECS absent |
+| `design-reviewer` | Vérifie que le code frontend correspond aux specs pixel-perfect | Après nextjs-dev |
+
+#### Frontend
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `nextjs-dev` | Next.js 16 App Router, Server Components, Server Actions. Applique les patterns officiels Vercel via `vercel:nextjs`. | Stack nextjs |
+| `ios-dev` | Swift 5.9+ / SwiftUI / URLSession / MSAL Azure AD pour clubmed | Stack ios/swift |
+| `android-dev` | Kotlin / Jetpack Compose / Retrofit / MSAL Android pour clubmed | Stack android/kotlin |
+| `accessibility` | Audit WCAG 2.1 AA : ARIA, contraste, navigation clavier, VoiceOver | Après nextjs-dev si composants UI |
+
+#### Backend
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `fastapi-dev` | Routers → Services → Repositories. Async partout, Pydantic v2, ruff clean. | Stack fastapi |
+| `auth-dev` | OAuth2, JWT, RBAC. Azure AD SSO (clubmed) / PyJWT (perso). Middleware FastAPI + next-auth. | Mots-clés : auth, login, JWT, SSO, RBAC |
+| `websocket-dev` | WebSocket FastAPI, ConnectionManager, broadcast, SSE. Reconnexion React avec backoff. | Mots-clés : websocket, real-time, SSE |
+| `worker-dev` | Workers async héritant de `BaseWorker`. Redis BLPOP, DLQ, stateless + idempotent. | Mots-clés : worker, queue, async job |
+| `cache-dev` | Redis async, cache-aside, stampede protection, `revalidateTag` Next.js. | Mots-clés : cache, Redis, revalidate |
+| `integration-dev` | Webhooks HMAC, idempotency keys, retry avec backoff, circuit breaker. | Mots-clés : webhook, external API |
+| `api-gateway-dev` | Nginx rate limiting, Traefik labels, middlewares FastAPI (RequestID, CORS, logging). | Mots-clés : rate limiting, nginx, gateway |
+
+#### Data
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `db-dev` | Modèles SQLAlchemy, migrations Alembic async, schéma Prisma, index dès la création. | Si schéma DB dans IMPL |
+| `dba` | Optimisation PostgreSQL : EXPLAIN ANALYZE, index CONCURRENTLY, détection N+1. | Après db-dev si jointures complexes |
+| `vector-db-dev` | pgvector : colonnes `vector(1536)`, index HNSW/IVFFlat, RAG patterns, embeddings batch. | Mots-clés : embedding, vector, pgvector |
+| `analytics-dev` | CTEs, window functions, time series, requêtes Recharts-ready. | Mots-clés : analytics, dashboard, time series |
+
+#### Infrastructure
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `devops` | Dockerfiles multi-stage (non-root, healthcheck), docker-compose, CI/CD pipelines. | Si Dockerfile ou docker-compose absent |
+| `infra-gcp` | Cloud Run, Cloud SQL, Artifact Registry, Workload Identity. Region `europe-west1`. | `type: perso` + demande cloud |
+| `infra-azure` | Container Apps, Azure DB for PG, Key Vault, Managed Identity, Federated Credentials. | `type: clubmed` + demande cloud |
+| `terraform-dev` | IaC GCP ou Azure depuis `.archipel/config/`. State distant (GCS/Azure Storage). | Si IaC requis |
+
+#### Tests & Qualité
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `test-writer` | Jest + pytest, coverage ≥ 80%, fixtures PostgreSQL réelles (pas SQLite). | Après chaque milestone |
+| `e2e-validator` | Smoke tests Playwright sur l'URL déployée. PASS/FAIL + screenshots. | Étape 4 — validation finale |
+| `perf-tester` | k6 : smoke / average load / stress / spike. Seuils p95 < 500ms. | Endpoints à fort volume |
+| `contract-tester` | schemathesis + openapi-typescript. Détecte les breaking changes API. | Après test-writer |
+
+#### Review (5 dimensions)
+| Agent | Rôle |
+|---|---|
+| `review-security` | Secrets, injections SQL/XSS, auth manquante, CORS, PII dans les logs |
+| `review-architecture` | SoC, Repository pattern, typage TypeScript/Pydantic, Server Components |
+| `review-performance` | N+1, pagination manquante, index absents, await séquentiel |
+| `review-maintainability` | Fonctions trop longues, nommage obscur, duplication |
+| `review-resilience` | Gestion d'erreurs, timeouts APIs tierces, cas limites, états UI vides |
+
+#### Observabilité & Documentation
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `monitoring-dev` | OpenTelemetry : traces FastAPI + Next.js. Sentry (perso) ou Azure Monitor (clubmed). `/health` enrichi. | Une fois, post-milestones |
+| `doc-writer` | OpenAPI enrichi (descriptions, exemples), CHANGELOG Keep a Changelog, ADR Markdown. | Après monitoring-dev |
+
+#### Intelligence
+| Agent | Rôle | Déclenchement |
+|---|---|---|
+| `kaizen` | Analyse les builds terminés, détecte les patterns d'amélioration. Observation uniquement. | Après build stable |
+| `cost-analyzer` | Coût tokens Claude (cache/input/output), coût cloud GCP/Azure estimé par build. | Fin de chaque build |
 
 ---
 
@@ -336,7 +458,7 @@ archipel/
 │   │   └── azure.yml         # Template deploy clubmed
 │   └── templates/            # Templates réutilisables (Trident, etc.)
 ├── .claude/
-│   ├── agents/               # 17 agents spécialisés
+│   ├── agents/               # 38 agents spécialisés
 │   ├── commands/             # Slash commands (/spec, /feature, /ship…)
 │   ├── hooks/                # 16 scripts de gouvernance
 │   └── settings.json         # Mapping events → hooks
