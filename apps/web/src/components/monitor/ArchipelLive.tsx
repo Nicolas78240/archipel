@@ -19,7 +19,7 @@ interface HookDef { id: string; event: string; name: string; desc: string; color
 interface StarDef { cx: number; cy: number; r: number; op: number; }
 
 const AGENT_DEFS: AgentDef[] = [
-  { id:"build-orchestrator",    stage:"feature", layer:"Orchestration", name:"Build Orchestrator", desc:"Orchestre l'intégralité du build. Ne touche jamais au code. Délègue via IMPL-*.md." },
+  { id:"build-orchestrator",    stage:"discover", layer:"Orchestration", name:"Build Orchestrator", desc:"Orchestre l'intégralité du build. Ne touche jamais au code. Délègue via IMPL-*.md." },
   { id:"architect",             stage:"spec",    layer:"Orchestration", name:"Architect",          desc:"Produit docs/IMPL-*.md — le plan technique consommé par tous les agents dev." },
   { id:"creative-director",     stage:"design",  layer:"Design",        name:"Creative Director",  desc:"Direction visuelle, palette, typographie → CREATIVE-BRIEF.md." },
   { id:"design-system",         stage:"design",  layer:"Design",        name:"Design System",      desc:"Tokens Tailwind, globals.css, composants métier → DESIGN-SYSTEM.md." },

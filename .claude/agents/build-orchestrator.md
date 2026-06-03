@@ -923,11 +923,43 @@ EOF
 
 ---
 
-### Étape 1G — Commit
+### Étape 1G — Commit + mise à jour stage Archipel Live
 
 ```bash
 git add <liste explicite des fichiers — jamais git add .>
 git commit -m "feat(<scope>): <milestone-titre> [<milestone-id>]"
+```
+
+**Mettre à jour le stage dans `project.json`** pour qu'Archipel Live reflète la position réelle dans le pipeline :
+
+```bash
+# Mapping milestone → stage pipeline Archipel Live
+# M1 (infra)    → "feature"   M2 (sync)  → "feature"
+# M3 (api)      → "feature"   M4 (ui)    → "feature"
+# M5 (pages)    → "review"    M6 (polish) → "qa"
+# build complet → "ship"
+
+python3 -c "
+import json, sys
+MILESTONE_TO_STAGE = {
+    'M1': 'feature', 'M2': 'feature', 'M3': 'feature',
+    'M4': 'feature', 'M5': 'review',  'M6': 'qa'
+}
+milestone = sys.argv[1]
+stage = MILESTONE_TO_STAGE.get(milestone, 'feature')
+d = json.load(open('.archipel/project.json'))
+d['stage'] = stage
+json.dump(d, open('.archipel/project.json', 'w'), indent=2)
+print(f'Stage mis à jour : {stage}')
+" <milestone-id>
+
+# Émettre un event de mise à jour de stage dans le feed
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_STAGE=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('stage','?'))" 2>/dev/null || echo "?")
+echo "{\"ts\":\"$_TS\",\"hook\":\"build-orchestrator\",\"type\":\"success\",\"project\":\"$_PROJ\",\"msg\":\"Milestone <milestone-id> complété → stage: $_STAGE\"}" >> "$_FEED" 2>/dev/null || true
 ```
 
 ---
