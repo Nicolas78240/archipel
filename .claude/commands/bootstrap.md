@@ -278,13 +278,15 @@ Projet **Archipel**. Ports : web=$PORT_WEB, api=$PORT_API, db=$PORT_DB.
 
 ## Démarrage
 
-\`\`\`bash
-/build    # Lance le build complet via build-orchestrator (M1 → dernier milestone)
-\`\`\`
+**Pour lancer le build complet, dire à Claude :**
 
-**\`/build\` invoque \`build-orchestrator\`** qui orchestre tout de façon autonome.
-Ne jamais invoquer les agents manuellement — passer par \`/build\`.
-Pour reprendre un build interrompu : \`/build\` relit \`.archipel/build-state.json\`.
+> **Invoque l'agent build-orchestrator**
+
+L'agent lit \`docs/tasks.md\`, \`docs/PRD.md\`, \`tasks/lessons.md\`
+et \`.archipel/build-state.json\` (reprise automatique si build interrompu),
+puis orchestre tout de façon autonome jusqu'au build report final.
+
+**Ne jamais invoquer les agents dev manuellement** — tout passe par build-orchestrator.
 
 ---
 
