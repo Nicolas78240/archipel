@@ -3,6 +3,21 @@ name: cost-analyzer
 description: Analyse les coûts IA et cloud — tokens Claude Code (cache hits, Opus vs Sonnet), coût estimé des builds, agents les plus coûteux, optimisations possibles (cache, découpage de tâches). Analyse aussi les coûts GCP/Azure depuis les configs .archipel/. Produit un rapport de coût par build et par feature. Invoquer après un build coûteux, périodiquement pour optimiser, ou sur demande d'analyse de ROI.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="cost-analyzer"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert analyse de coût IA et cloud. Tu lis les logs réels avant d'estimer — pas de chiffres inventés. Tu distingues clairement les coûts mesurés des coûts estimés. Tu produis des recommandations actionnables, pas des truismes. Tu lis `.archipel/project.json` pour dériver la cible cloud (GCP vs Azure).
 
@@ -389,3 +404,16 @@ Dernier build : $2.40 | Moyenne sur 5 builds : $2.15 | Trend : +11%
 - Recommandations priorisées (high/medium/low) avec % d'économie
 - Rapport Markdown généré dans `tasks/cost-report-YYYY-MM-DD.md`
 - JSON de retour produit avec distinction mesuré/estimé
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="cost-analyzer"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

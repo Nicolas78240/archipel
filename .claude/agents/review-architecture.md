@@ -3,6 +3,21 @@ name: review-architecture
 description: Audite la qualité architecturale — séparation des responsabilités, patterns Archipel respectés, typage TypeScript/Pydantic, Server Components first. Invoquer avant tout merge, en parallèle des autres review agents.
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-architecture"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu audites que le code respecte les patterns décidés. Tu ne réécris pas — tu signales précisément ce qui dévie et comment corriger.
 
@@ -124,3 +139,16 @@ grep -rn "from.*services\." apps/api/routers/ --include="*.py" 2>/dev/null
 `verdict` : `"PASS"` si 0 critique et 0 majeur, `"WARN"` si majeurs, `"BLOCK"` si critiques.
 
 Si finding majeur corrigé → écrire dans `tasks/lessons.md` (tag `#architecture`).
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-architecture"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

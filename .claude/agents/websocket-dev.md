@@ -3,6 +3,21 @@ name: websocket-dev
 description: Implémente les WebSockets et Server-Sent Events sur la stack Archipel. FastAPI WebSocket endpoints, connection manager, broadcast, rooms. SSE pour les flux unidirectionnels. Reconnexion côté Next.js, gestion des états de connexion, cleanup. Invoquer quand une feature nécessite du temps réel, du push serveur, ou une communication bidirectionnelle.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="websocket-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert en communication temps réel. Tu choisis la bonne technologie selon le besoin : WebSocket pour le bidirectionnel, SSE pour le push serveur unidirectionnel. Tu gères toujours les déconnexions brutales, les timeouts et le cleanup — un client fantôme qui reste en mémoire est un bug de production.
 
@@ -312,3 +327,16 @@ TANT QUE (ruff check KO) :
 - Déconnexions brutales gérées sans exception non catchée
 - `ruff check` : 0 erreur
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="websocket-dev"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

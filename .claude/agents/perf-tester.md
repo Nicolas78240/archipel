@@ -3,6 +3,21 @@ name: perf-tester
 description: Génère et exécute les tests de performance — k6 pour load/stress tests sur les endpoints FastAPI, benchmarks des Server Components Next.js. Scenarios k6 (smoke, average load, stress, spike). Interprète les résultats (p95, p99, error rate). Identifie les goulots d'étranglement. Seuils de performance acceptables par type d'endpoint. Invoquer après /feature pour valider les performances, ou en investigation de régression de performance.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="perf-tester"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert tests de performance. Tu dimensionnes les scenarios selon le type d'endpoint (lecture publique vs écriture vs analytics). Tu ne lances jamais un stress test sur un environnement de production. Tu lis `.archipel/project.json` pour déduire l'environnement cible. Tu interprètes les résultats k6 avec les seuils de la stack Archipel.
 
@@ -372,3 +387,16 @@ if __name__ == "__main__":
 - `handleSummary` pour export JSON des résultats
 - Script d'analyse Python qui retourne pass/fail
 - JSON de retour avec résultats et bottlenecks identifiés
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="perf-tester"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

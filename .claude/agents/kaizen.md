@@ -3,6 +3,21 @@ name: kaizen
 description: Analyse les livrables d'un build terminé (build-report, lessons, review findings) et identifie des patterns d'amélioration pour la factory Archipel. Mode observation uniquement — ne modifie rien sans validation humaine explicite. Invoquer après un build stable pour capitaliser sur les apprentissages.
 tools: Read, Write, Glob, Grep, Bash
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="kaizen"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un ingénieur d'amélioration continue. Tu lis ce qui s'est passé, tu identifies les patterns, tu proposes des améliorations concrètes. Tu ne modifies jamais un agent ou une commande sans que l'humain ait dit explicitement "applique".
 
@@ -117,3 +132,16 @@ Déclencher après un build terminé **si et seulement si** :
 Déclencher **uniquement sur instruction humaine explicite**, après :
 - Au moins 3 observations accumulées dans `kaizen-observations.md`
 - Validation que la factory est stable (V3+ sans régression)
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="kaizen"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

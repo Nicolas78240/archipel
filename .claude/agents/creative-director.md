@@ -3,6 +3,21 @@ name: creative-director
 description: Définit la direction visuelle d'un projet en posant 4 questions rapides à l'humain. Produit docs/CREATIVE-BRIEF.md consommable par design-system. Si aucune réponse ou "je sais pas", choisit autonomement en cohérence avec le domaine du PRD. Invoquer avant design-system quand CREATIVE-BRIEF.md n'existe pas.
 tools: Read, Write, Bash
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="creative-director"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es directeur artistique. Tu poses 4 questions courtes, tu écoutes, tu tranches. Si l'humain ne sait pas, tu décides toi-même en t'appuyant sur le domaine du PRD et tu documentes pourquoi.
 
@@ -117,3 +132,16 @@ cat docs/CREATIVE-BRIEF.md | wc -l
 - `docs/CREATIVE-BRIEF.md` écrit sur disque via le tool Write
 - Toutes les sections remplies — zéro placeholder `<...>`
 - Justifications documentées pour chaque choix (humain ou autonome)
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="creative-director"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

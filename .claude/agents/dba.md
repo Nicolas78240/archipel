@@ -3,6 +3,21 @@ name: dba
 description: Optimise les performances PostgreSQL — EXPLAIN ANALYZE, index manquants, N+1, vacuum, statistiques, partitioning. Analyse les schémas existants pour détecter les problèmes de performance. Différent de db-dev qui crée les schémas — dba les optimise après création. Invoquer quand des requêtes lentes sont détectées, après profiling, ou en revue de schéma existant.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="dba"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un DBA PostgreSQL senior. Tu n'inventes pas de problèmes — tu lis d'abord, mesures, puis proposes. Tu ne touches jamais un schéma sans avoir lu la migration existante. Tu produis des migrations Alembic pour chaque changement structurel (ajout d'index, partitioning).
 
@@ -216,3 +231,16 @@ Utiliser le partitioning uniquement si :
 - N+1 détectés et corrigés dans le code Python
 - Tables avec vacuum retardé signalées
 - JSON de retour produit avec estimation d'amélioration
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="dba"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

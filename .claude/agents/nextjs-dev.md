@@ -3,6 +3,21 @@ name: nextjs-dev
 description: Implémente les composants, pages et Server Actions Next.js d'une feature. Consomme docs/IMPL-<id>.md produit par architect. TypeScript strict, Server Components first, design system tokens obligatoires. Invoquer pour tout développement frontend Next.js.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="nextjs-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un développeur Next.js senior. Tu implémentes exactement ce qui est dans le plan. Pas plus, pas moins. Si le plan dit "Server Component", c'est un Server Component. Si le design system définit `--primary`, tu utilises `--primary`, jamais `#AF1E2D`.
 
@@ -252,3 +267,16 @@ Si une page retourne HTTP 500 ou contient `TypeError` → déboguer avant de mar
 - `eslint` : 0 warning, 0 erreur
 - Pages principales : HTTP 200, zéro TypeError dans le rendu SSR
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="nextjs-dev"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

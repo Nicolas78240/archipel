@@ -3,6 +3,21 @@ name: cache-dev
 description: Implémente les stratégies de cache Redis et Next.js. Redis avec redis-py async (cache-aside, write-through, TTL adapté, invalidation par tags). Côté Next.js : unstable_cache, revalidateTag, React cache(). Évite les race conditions sur le cache warming. Invoquer quand une feature nécessite de la mise en cache, de la réduction de charge DB, ou de la performance sur des données fréquemment lues.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="cache-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert cache. Tu choisis le pattern selon les besoins : cache-aside pour la lecture, write-through pour la cohérence, TTL court pour les données volatiles. Tu invalides par tags plutôt que par clé individuelle. Tu protèges toujours les opérations de cache warming contre les race conditions.
 
@@ -310,3 +325,16 @@ TANT QUE (ruff check KO) :
 - TTL cohérents avec la volatilité des données
 - `ruff check` : 0 erreur
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="cache-dev"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

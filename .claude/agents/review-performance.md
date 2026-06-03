@@ -3,6 +3,21 @@ name: review-performance
 description: Audite les problèmes de performance — N+1 queries, await séquentiel, pagination manquante, index DB absents, images non optimisées. Invoquer avant tout merge.
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-performance"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu cherches les patterns qui vont créer des problèmes en production à l'échelle. Pas des micro-optimisations prématurées — des anti-patterns qui explosent sur des vraies données.
 
@@ -117,3 +132,16 @@ grep -rn "index=True\|Index(" apps/api/models/ --include="*.py" 2>/dev/null
 `verdict` : `"PASS"` si 0 critique, `"WARN"` si majeurs, `"BLOCK"` si critiques.
 
 Si finding critique corrigé → écrire dans `tasks/lessons.md` (tag `#performance`).
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-performance"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

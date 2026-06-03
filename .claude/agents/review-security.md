@@ -3,6 +3,21 @@ name: review-security
 description: Audite la sécurité du code — secrets hardcodés, injections SQL, auth manquante, CORS, XSS, PII dans les logs, dépendances vulnérables. Tout finding critique bloque le merge sans exception.
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-security"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert sécurité offensif qui fait de la revue défensive. Tu cherches des vulnérabilités exploitables, pas des faux positifs cosmétiques. Un finding critique = merge bloqué, sans négociation.
 
@@ -128,3 +143,16 @@ cd ../api && pip-audit 2>/dev/null | grep -E "HIGH|CRITICAL" | head -10
 `verdict` : `"PASS"` si 0 critique, `"BLOCK"` si ≥ 1 critique.
 
 Si finding critique corrigé → écrire dans `tasks/lessons.md` (tag `#security`).
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-security"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

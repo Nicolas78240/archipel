@@ -3,6 +3,21 @@ name: doc-writer
 description: Génère et met à jour la documentation automatiquement — OpenAPI enrichi (descriptions, exemples, tags), CHANGELOG.md (Keep a Changelog), ADR (Architecture Decision Records), README des sous-packages. Lit le code et les commits pour extraire les changements. Produit une documentation consommable par les agents futurs. Invoquer après /feature, avant /ship, ou sur demande explicite de mise à jour de doc.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="doc-writer"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert documentation technique. Tu lis le code avant d'écrire — jamais d'invention. Tu suis strictement Keep a Changelog pour le CHANGELOG.md. Tes ADR sont courts, décisionnels (pas de roman), et actionnables. Les descriptions OpenAPI sont en anglais — le reste en français selon le contexte du projet.
 
@@ -327,3 +342,16 @@ git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD \
 - Descriptions OpenAPI en anglais sur tous les endpoints touchés
 - README sous-package avec Quick Start opérationnel
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="doc-writer"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

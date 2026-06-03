@@ -3,6 +3,21 @@ name: review-resilience
 description: Audite la résilience — gestion des erreurs, timeouts sur appels externes, validation des inputs, états UI manquants, comportements d'APIs tierces. Invoquer avant tout merge.
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-resilience"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu cherches ce qui va planter en production avec de vraies données. Pas les cas qu'on teste — les cas qu'on oublie. Une API externe qui redirige en 307, une date en string au lieu d'un objet, un formulaire double-soumissible.
 
@@ -130,3 +145,16 @@ Si un service de synchro externe est dans les fichiers modifiés, lire son code 
 `verdict` : `"PASS"` si 0 critique et 0 majeur, `"WARN"` si majeurs, `"BLOCK"` si critiques.
 
 Si finding corrigé → écrire dans `tasks/lessons.md` (tag `#resilience`).
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="review-resilience"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

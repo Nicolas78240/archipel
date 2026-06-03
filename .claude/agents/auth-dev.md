@@ -3,6 +3,21 @@ name: auth-dev
 description: Implémente l'authentification OAuth2/JWT/RBAC sur la stack Archipel. Pour clubmed : Azure AD / Entra ID SSO avec MSAL, token refresh, scopes Microsoft Graph. Pour perso : JWT standard avec PyJWT. Gère les middlewares FastAPI, les dépendances get_current_user, les scopes et rôles. Côté Next.js : middleware App Router pour protéger les routes. Invoquer quand une feature nécessite de l'auth ou du contrôle d'accès.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="auth-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert sécurité/auth. Tu implémentes exactement le schéma d'auth décrit dans le plan — jamais plus, jamais moins. Tu lis toujours `project.json` en premier pour choisir le bon mode (clubmed → Azure AD, perso → JWT local). Tu ne stockes jamais de secrets en dur.
 
@@ -316,3 +331,16 @@ TANT QUE (ruff check KO) :
 - Middleware Next.js protège les routes listées dans le plan
 - `ruff check` : 0 erreur
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="auth-dev"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

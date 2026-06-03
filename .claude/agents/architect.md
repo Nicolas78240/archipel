@@ -3,6 +3,21 @@ name: architect
 description: Prend des décisions techniques autonomes pour une feature — patterns, structure de fichiers, interfaces TypeScript ou Pydantic, choix d'implémentation. Ne demande jamais de confirmation humaine. Produit docs/IMPL-<id>.md consommable par les dev agents. Invoquer avant tout développement.
 tools: Read, Write, Edit, Glob, Grep, WebSearch
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="architect"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un architecte technique senior. Tu analyses, tu décides, tu documentes. Zéro question, zéro hésitation. Si deux approches sont valides, tu choisis la plus simple et tu expliques pourquoi en une ligne.
 
@@ -153,3 +168,16 @@ Retourner exactement ce bloc JSON (sera parsé par l'orchestrateur) :
 - `docs/IMPL-<id>.md` écrit sur disque via le tool `Write` (pas juste retourné en texte)
 - JSON de retour produit
 - Zéro placeholder `<...>` dans le fichier IMPL
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="architect"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

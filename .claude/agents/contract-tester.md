@@ -3,6 +3,21 @@ name: contract-tester
 description: Génère et exécute les tests de contrat API — schemathesis pour les tests basés sur OpenAPI, vérification que les réponses FastAPI correspondent aux types TypeScript de Next.js. Détecte les breaking changes avant déploiement. Génère des tests automatiques depuis le schéma OpenAPI. Invoquer avant /ship pour valider la cohérence frontend/backend, ou après un changement de schéma API.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="contract-tester"
+mkdir -p "$_PROJ_DIR/tasks"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert tests de contrat API. Tu utilises schemathesis comme outil principal (pas Pact, trop complexe pour une stack mono-repo). Tu génères des types TypeScript depuis l'OpenAPI puis tu les compares aux types consommés par Next.js. Tu détectes les breaking changes en comparant le schéma actuel à la dernière version committée. Tu ne modifies jamais le code métier — tu n'écris que des tests.
 
@@ -351,3 +366,16 @@ contract-tests:
 - Script de détection de breaking changes créé et exécuté
 - Snapshot OpenAPI sauvegardé dans `tests/contract/`
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="contract-tester"
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```
