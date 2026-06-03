@@ -59,7 +59,20 @@ except:
 " 2>/dev/null || echo "")
 MSG="$AGENT_TYPE started"
 [ -n "$AGENT_DESC" ] && MSG="$AGENT_TYPE — $AGENT_DESC"
-_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-subagent-start\",\"type\":\"agent\",\"project\":\"$_MONITOR_PROJ\",\"agent\":\"$AGENT_TYPE\",\"msg\":\"$MSG\"}"
+export _MONITOR_TS _MONITOR_PROJ AGENT_TYPE MSG
+SAFE_EVENT=$(python3 -c "
+import json, os
+event = {
+    'ts': os.environ.get('_MONITOR_TS','?'),
+    'hook': 'on-subagent-start',
+    'type': 'agent',
+    'project': os.environ.get('_MONITOR_PROJ','?'),
+    'agent': os.environ.get('AGENT_TYPE','?'),
+    'msg': os.environ.get('MSG','?')
+}
+print(json.dumps(event))
+" 2>/dev/null || echo "")
+[ -n "$SAFE_EVENT" ] && _monitor_push "$SAFE_EVENT"
 
 # Injecter les leçons fraîches dans le contexte de l'agent
 # (réinjecter à chaque agent, pas seulement au SessionStart)

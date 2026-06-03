@@ -69,7 +69,20 @@ except:
     print("TOOL FAILURE: details unavailable")
 PYEOF3
 )
-_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-tool-failure\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"FAIL: $MONITOR_MSG\"}"
+# Utiliser python3 pour garantir l'échappement JSON correct
+export _MONITOR_TS _MONITOR_PROJ MONITOR_MSG
+SAFE_EVENT=$(python3 -c "
+import json, os
+event = {
+    'ts': os.environ.get('_MONITOR_TS','?'),
+    'hook': 'on-tool-failure',
+    'type': 'blocked',
+    'project': os.environ.get('_MONITOR_PROJ','?'),
+    'msg': 'FAIL: ' + os.environ.get('MONITOR_MSG','?')
+}
+print(json.dumps(event))
+" 2>/dev/null || echo "")
+[ -n "$SAFE_EVENT" ] && _monitor_push "$SAFE_EVENT"
 
 # Audit log séparé (stderr pour ne pas polluer stdout JSON)
 python3 << PYEOF2 >> "$PROJECT_DIR/.archipel/audit.log" 2>/dev/null
