@@ -607,6 +607,52 @@ export default function ArchipelLive() {
             </defs>
             <rect x="0" y="0" width={VW} height={VH} fill="url(#ng)"/>
 
+            {/* ══ BUILD ORCHESTRATOR — nœud central au-dessus du pipeline ══ */}
+            {(() => {
+              const OX = VW / 2;        // centré horizontalement
+              const OY = 42;            // au-dessus du pipeline
+              const OR = 18;            // rayon
+              const isActive = firing.has("build-orchestrator");
+              const oc = "#63b3ed";     // couleur orchestrateur — bleu ciel
+              return (
+                <g key="orchestrator">
+                  {/* Lignes vers chaque nœud du pipeline */}
+                  {STAGES.map((st, i) => {
+                    const tx = sx(i), ty = NY - NR - 2;
+                    const done = i < curSi;
+                    return (
+                      <line key={st.id}
+                        x1={OX} y1={OY + OR}
+                        x2={tx} y2={ty}
+                        stroke={done ? `${oc}40` : `${oc}15`}
+                        strokeWidth={done ? 1 : 0.6}
+                        strokeDasharray={isActive ? undefined : "4 4"}
+                      />
+                    );
+                  })}
+                  {/* Halo si actif */}
+                  {isActive && <circle cx={OX} cy={OY} r={OR + 18} fill={`${oc}12`} className="hl"/>}
+                  {/* Cercle principal */}
+                  <circle cx={OX} cy={OY} r={OR}
+                    fill={isActive ? `${oc}25` : "rgba(255,255,255,0.03)"}
+                    stroke={isActive ? oc : `${oc}55`}
+                    strokeWidth={isActive ? 2 : 1}
+                  />
+                  {/* Symbole ⬡ */}
+                  <text x={OX} y={OY} textAnchor="middle" dominantBaseline="middle"
+                    fontSize={13} fill={isActive ? oc : `${oc}80`}
+                    fontFamily="JetBrains Mono,monospace">⬡</text>
+                  {/* Label */}
+                  <text x={OX} y={OY - OR - 6} textAnchor="middle"
+                    fontSize={7} fill={isActive ? oc : `${oc}60`}
+                    fontFamily="JetBrains Mono,monospace"
+                    fontWeight={isActive ? "700" : "400"}>
+                    orchestrator
+                  </text>
+                </g>
+              );
+            })()}
+
             {projRW.map((rw, ri) => {
               const fi = IDX[rw.from], ti = IDX[rw.to];
               if (fi === undefined || ti === undefined || fi <= ti) return null;
