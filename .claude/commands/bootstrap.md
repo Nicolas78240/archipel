@@ -233,6 +233,14 @@ mkdir -p .claude
 cp -r "$ARCHIPEL_HOME/.claude/commands" .claude/
 echo "✅ Commandes Archipel copiées dans .claude/commands/"
 
+# Copier les hooks Archipel (version live — pas les templates statiques)
+cp -r "$ARCHIPEL_HOME/.claude/hooks" .claude/
+echo "✅ Hooks Archipel copiés dans .claude/hooks/ (version live)"
+
+# Copier les agents Archipel
+cp -r "$ARCHIPEL_HOME/.claude/agents" .claude/
+echo "✅ Agents Archipel copiés dans .claude/agents/ (version live)"
+
 # Copier les skills
 cp -r "$ARCHIPEL_HOME/skills" .
 echo "✅ Skills Archipel copiés dans skills/"
