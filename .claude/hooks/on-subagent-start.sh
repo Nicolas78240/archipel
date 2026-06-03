@@ -41,8 +41,8 @@ case "$AGENT_TYPE" in
   review-security|\
   review-architecture|\
   review-performance|\
-  review-maintainability|\
   review-resilience)     SCOPE="docs/review/" ;;
+  review-maintainability) SCOPE="docs/review/ docs/PATTERNS.md" ;;
   build-orchestrator)    SCOPE="*" ;;
   *)                     SCOPE="unknown" ;;
 esac

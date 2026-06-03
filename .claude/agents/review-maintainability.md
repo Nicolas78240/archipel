@@ -34,6 +34,10 @@ Une fonction longue = plusieurs responsabilités. Signaler avec le nombre de lig
 - Blocs > 5 lignes identiques ou quasi-identiques dans plusieurs fichiers
 - Logique de pagination recopiée au lieu d'utiliser une dépendance commune
 
+Pour chaque duplication > 20 lignes détectée :
+1. Vérifier si `docs/PATTERNS.md` répertorie déjà ce pattern — si oui, le dev agent l'a ignoré → finding **critique**
+2. Si le pattern n'est pas documenté → ajouter une entrée dans `docs/PATTERNS.md` avant de terminer ce review
+
 **Commentaires qui décrivent le QUOI :**
 ```python
 # ❌ Commentaire inutile — le code le dit déjà

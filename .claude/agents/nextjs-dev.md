@@ -31,9 +31,17 @@ cat docs/UI-SPECS.md 2>/dev/null
 # Lire le design system (tokens)
 cat docs/DESIGN-SYSTEM.md 2>/dev/null
 
+# Patterns établis à réutiliser — LIRE EN PREMIER
+cat docs/PATTERNS.md 2>/dev/null | head -80
+
+# Réutilisation forcée depuis le plan architect
+grep -A 20 "Réutilisation obligatoire" docs/IMPL-*.md 2>/dev/null | head -40
+
 # Lire les composants features existants pour ne pas dupliquer
 ls apps/web/src/components/features/ 2>/dev/null
 ls apps/web/src/components/ui/ 2>/dev/null
+find apps/web/src/lib -name "*.ts" 2>/dev/null
+find apps/web/src/hooks -name "*.ts" 2>/dev/null
 
 # Lire les types existants
 cat apps/web/src/types/api.ts 2>/dev/null

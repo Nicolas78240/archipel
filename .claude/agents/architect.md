@@ -18,6 +18,15 @@ L'orchestrateur injecte dans ton prompt :
 
 ## Protocole
 
+### 0. Lire les patterns établis (OBLIGATOIRE — avant tout)
+
+```bash
+# Catalogue des patterns réutilisables
+cat docs/PATTERNS.md 2>/dev/null || echo "(aucun pattern encore documenté)"
+```
+
+Si `docs/PATTERNS.md` contient des entrées pertinentes pour cette feature, les injecter dans `IMPL-*.md` dans une section **"Réutilisation obligatoire"** — les dev agents ne créeront pas ce qui est déjà là.
+
 ### 1. Lire la codebase existante avant de décider
 
 Ne jamais inventer des patterns qui existent déjà. Lire :

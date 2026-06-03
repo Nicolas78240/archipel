@@ -19,6 +19,12 @@ L'orchestrateur injecte :
 ```bash
 cat docs/IMPL-<id>.md
 
+# Patterns établis à réutiliser — LIRE EN PREMIER
+cat docs/PATTERNS.md 2>/dev/null | head -80
+
+# Réutilisation forcée depuis le plan architect
+grep -A 20 "Réutilisation obligatoire" docs/IMPL-*.md 2>/dev/null | head -40
+
 # Patterns existants à respecter
 find apps/api/routers -name "*.py" | head -3 | xargs cat 2>/dev/null | head -60
 find apps/api/services -name "*.py" | head -3 | xargs cat 2>/dev/null | head -60
