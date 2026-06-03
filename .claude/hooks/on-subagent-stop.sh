@@ -175,10 +175,14 @@ f = os.environ['COVERAGE_FILE']
 d = json.load(open(f))
 pct = d.get('total', {}).get('lines', {}).get('pct', 0)
 if float(pct) < 80:
-    print(json.dumps({'systemMessage': f'GATE test-writer : coverage {pct}% < 80% requis'}))
+    # GATE BLOQUANT — plus de "continuer" si coverage insuffisant
+    print(json.dumps({'decision': 'block', 'reason': f'GATE BLOQUANT : coverage web {pct}% < 80% requis. Relancer test-writer jusqu\'à atteindre 80%.'}))
 else:
     import sys; print(f'OK Coverage web : {pct}%', file=sys.stderr)
 PYEOF
+    else
+      # Pas de fichier coverage = tests jamais lancés = bloquant aussi
+      python3 -c "import json; print(json.dumps({'decision': 'block', 'reason': 'GATE BLOQUANT : aucun fichier coverage trouvé — les tests web ne semblent pas avoir été exécutés.'}))"
     fi
     ;;
 

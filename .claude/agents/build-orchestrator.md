@@ -784,17 +784,24 @@ prompt        : "
 "
 ```
 
-Attendre le JSON. Si `coverage < 80%` après 3 itérations internes → noter dans lessons.md via Bash et continuer.
+Attendre le JSON. Si `coverage < 80%` après 3 itérations internes → **BLOQUER** (le hook on-subagent-stop.sh bloque déjà — ne pas continuer).
 
 **Après test-writer** → invoquer en parallèle dans un seul message :
 
 ```
-Agent A — subagent_type: "contract-tester"  [toujours si endpoints API présents]
+Agent A — subagent_type: "contract-tester"  [OBLIGATOIRE si endpoints API présents — pas optionnel]
 prompt : "
   Valider les contrats API entre frontend et backend.
-  Fichiers API : <liste depuis JSON fastapi-dev>
-  Fichiers Web types : <liste src/types/ depuis JSON nextjs-dev>
-  Détecter les breaking changes et les incompatibilités de types.
+  URL API : http://localhost:<PORT_API>
+  Schéma OpenAPI : http://localhost:<PORT_API>/openapi.json
+  Types TypeScript existants : apps/web/src/types/
+  Vérifications obligatoires :
+  1. Générer types TS depuis OpenAPI → comparer avec src/types/ → 0 divergence
+  2. Vérifier que PagedResponse est normalisé partout (jamais data.items dans les pages)
+  3. Vérifier que les colonnes NUMERIC retournent float (pas Decimal/string)
+  4. Vérifier que getSeasons() retourne Season[] (pas string[])
+  5. Exécuter schemathesis sur les 3 endpoints principaux
+  Retourner : findings (type mismatch = bloquant), verdict PASS/BLOCK.
 "
 
 Agent B — subagent_type: "perf-tester"  [si IMPL contient endpoints à fort volume]
@@ -911,6 +918,19 @@ TANT QUE (findings critiques > 0 OU findings majeurs > 0) :
 
 FIN TANT QUE
 
+**Propagation des corrections cross-milestones :**
+Si une correction touche un pattern utilisé dans d'autres milestones (ex: normalisation PagedResponse, type de retour API, format de date), identifier les milestones affectés et re-valider :
+
+```bash
+# Identifier les autres milestones qui utilisent le même pattern corrigé
+PATTERN_AFFECTED=$(grep -rl "<mot-clé du pattern corrigé>" docs/IMPL-M*.md 2>/dev/null | grep -v "IMPL-<milestone-courant>")
+if [ -n "$PATTERN_AFFECTED" ]; then
+  echo "⚠️  Pattern corrigé également utilisé dans : $PATTERN_AFFECTED"
+  echo "    Invoquer review-architecture sur les fichiers correspondants"
+  # Invoquer review-architecture sur les fichiers des milestones affectés
+fi
+```
+
 Si corrections → écrire dans tasks/lessons.md via Bash :
 ```bash
 cat >> tasks/lessons.md << EOF
@@ -965,27 +985,59 @@ echo "{\"ts\":\"$_TS\",\"hook\":\"build-orchestrator\",\"type\":\"success\",\"pr
 
 ---
 
-### Étape 1H — Smoke test runtime (milestones backend)
+### Étape 1H — Smoke test runtime (TOUS les milestones — pas seulement backend)
 
 ```bash
-HAS_BACKEND=$(grep -c "nhl_client\|sync\|router\|endpoint\|repository" docs/IMPL-<milestone-id>.md 2>/dev/null || echo "0")
+PORT_API=$(python3 -c "import json; print(json.load(open('.archipel/project.json'))['ports']['api'])" 2>/dev/null || echo "8000")
+PORT_WEB=$(python3 -c "import json; print(json.load(open('.archipel/project.json'))['ports']['web'])" 2>/dev/null || echo "3000")
 ```
 
-Si `HAS_BACKEND > 0` :
-
+**Backend (milestones avec API) :**
 ```bash
 docker compose up -d --build 2>/dev/null && sleep 8
-PORT_API=$(python3 -c "import json; print(json.load(open('.archipel/project.json'))['ports']['api'])" 2>/dev/null || echo "8000")
 curl -sf http://localhost:${PORT_API}/health | python3 -m json.tool
+# Si health KO → docker compose logs api --tail 50 → invoquer fastapi-dev pour corriger
 ```
 
-Si health KO :
+**Tâches [EXEC] — vérification obligatoire avec boucle retry :**
 ```bash
-docker compose logs api --tail 50
+# Lire toutes les tâches [EXEC] non cochées du milestone courant
+EXEC_TASKS=$(grep "\[EXEC\]" docs/tasks.md | grep "^\- \[ \]" || echo "")
+if [ -n "$EXEC_TASKS" ]; then
+  echo "Tâches [EXEC] à exécuter :"
+  echo "$EXEC_TASKS"
+  # Pour chaque [EXEC] : exécuter la commande, vérifier la condition, max 2 retries
+  # Si la condition échoue après 2 retries → invoquer l'agent approprié pour corriger
+  # Cocher [x] UNIQUEMENT si la condition est vérifiée
+fi
 ```
-Invoquer Agent(fastapi-dev) pour corriger le bug runtime. Re-commit. Re-test.
 
-Si health OK → smoke test endpoint principal du milestone.
+**Frontend (milestones avec composants UI — M4, M5, M6 systématiquement) :**
+```bash
+HAS_UI=$(grep -c "tsx\|composant\|page\|dashboard\|frontend" docs/IMPL-<milestone-id>.md 2>/dev/null || echo "0")
+if [ "$HAS_UI" -gt "0" ]; then
+  # Vérifier que le frontend répond et n'a pas de TypeError
+  HTTP_STATUS=$(curl -sf -o /tmp/page_check.html -w "%{http_code}" "http://localhost:${PORT_WEB}/" 2>/dev/null || echo "000")
+  if [ "$HTTP_STATUS" != "200" ]; then
+    echo "BLOQUANT : Frontend ne répond pas (HTTP $HTTP_STATUS)"
+    docker compose logs web --tail 30
+    # Invoquer nextjs-dev pour corriger
+  else
+    JS_ERRORS=$(grep -c "TypeError\|ReferenceError\|Cannot read" /tmp/page_check.html 2>/dev/null || echo "0")
+    if [ "$JS_ERRORS" -gt "0" ]; then
+      echo "BLOQUANT : $JS_ERRORS erreurs JS détectées dans le rendu SSR"
+      # Invoquer nextjs-dev pour corriger
+    fi
+    # Vérifier les pages principales du milestone
+    for PAGE in "" "games" "standings" "roster" "histoire"; do
+      STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "http://localhost:${PORT_WEB}/${PAGE}" 2>/dev/null || echo "000")
+      [ "$STATUS" = "200" ] && echo "✅ /$PAGE" || echo "❌ /$PAGE (HTTP $STATUS) — invoquer nextjs-dev"
+    done
+  fi
+fi
+```
+
+Si un test échoue → invoquer l'agent approprié (fastapi-dev ou nextjs-dev), corriger, re-commit, re-tester. Max 3 cycles.
 
 ---
 
