@@ -1,7 +1,7 @@
 ---
 name: architect
 description: Prend des décisions techniques autonomes pour une feature — patterns, structure de fichiers, interfaces TypeScript ou Pydantic, choix d'implémentation. Ne demande jamais de confirmation humaine. Produit docs/IMPL-<id>.md consommable par les dev agents. Invoquer avant tout développement.
-tools: Read, Write, Edit, Glob, Grep, WebSearch
+tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch
 ---
 ## Archipel Live — signal démarrage
 
