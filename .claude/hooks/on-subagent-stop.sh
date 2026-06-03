@@ -165,6 +165,54 @@ case "$AGENT_TYPE" in
     echo "OK Gate ui-designer : UI-SPECS.md present ($SPEC_LINES lignes)" >&2
     ;;
 
+  e2e-validator)
+    # Gate 2 : e2e-validator doit avoir produit au moins un fichier .spec.ts
+    SPEC_COUNT=$(find "$PROJECT_DIR" -name "*.spec.ts" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$SPEC_COUNT" -eq "0" ]; then
+      python3 -c "import json; print(json.dumps({'decision': 'block', 'reason': 'GATE BLOQUANT : e2e-validator a terminé sans produire de tests .spec.ts. Relancer e2e-validator pour générer les smoke tests.'}))"
+      exit 0
+    fi
+    echo "OK Gate e2e-validator : $SPEC_COUNT fichiers .spec.ts présents" >&2
+    ;;
+
+  contract-tester)
+    # Gate 3 : contract-tester doit avoir produit un snapshot OpenAPI
+    if [ ! -f "$PROJECT_DIR/tests/contract/openapi-snapshot.json" ]; then
+      python3 -c "import json; print(json.dumps({'decision': 'block', 'reason': 'GATE BLOQUANT : contract-tester a terminé sans produire tests/contract/openapi-snapshot.json. Relancer contract-tester.'}))"
+      exit 0
+    fi
+    # Vérifier absence de type mismatch critique dans le rapport
+    MISMATCH=$(grep -l "type_mismatch\|CRITICAL\|decimal.*string\|items.*undefined" "$PROJECT_DIR/tests/contract/"*.json 2>/dev/null | head -1)
+    if [ -n "$MISMATCH" ]; then
+      emit_warn "Gate contract-tester : type mismatch détecté dans $MISMATCH — corriger avant de continuer"
+    else
+      echo "OK Gate contract-tester : snapshot présent, aucun mismatch critique" >&2
+    fi
+    ;;
+
+  build-orchestrator)
+    # Gate 1 : vérifier que les agents obligatoires ont été invoqués pendant le build
+    FEED="$PROJECT_DIR/tasks/live-events.jsonl"
+    if [ -f "$FEED" ]; then
+      MISSING_AGENTS=""
+      for required_agent in "test-writer" "contract-tester" "e2e-validator"; do
+        if ! grep -q "\"agent\":\"$required_agent\"" "$FEED" 2>/dev/null; then
+          MISSING_AGENTS="$MISSING_AGENTS $required_agent"
+        fi
+      done
+      if [ -n "$MISSING_AGENTS" ]; then
+        export MISSING_AGENTS
+        python3 -c "
+import json, os
+agents = os.environ.get('MISSING_AGENTS','').strip()
+print(json.dumps({'decision': 'block', 'reason': f'GATE BLOQUANT : agents obligatoires jamais invoqués pendant le build : {agents}. Relancer le build pour les inclure.'}))
+"
+        exit 0
+      fi
+      echo "OK Gate build-orchestrator : test-writer, contract-tester, e2e-validator tous invoqués" >&2
+    fi
+    ;;
+
   test-writer)
     COVERAGE_FILE="$PROJECT_DIR/apps/web/coverage/coverage-summary.json"
     if [ -f "$COVERAGE_FILE" ]; then

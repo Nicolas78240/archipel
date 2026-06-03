@@ -1,0 +1,17 @@
+{
+  "pages": [
+    "/",
+    "/games",
+    "/standings",
+    "/roster",
+    "/histoire"
+  ],
+  "patterns": [
+    "MTL",
+    "BUF",
+    "CAR",
+    "Anderson",
+    "Suzuki",
+    "Caufield"
+  ]
+}

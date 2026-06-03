@@ -100,6 +100,55 @@ print(json.dumps({'systemMessage': ' | '.join(parts)}))
 PYEOF
 fi
 
+# Gate 4 — Vérifier que les pages web ont des données réelles (pas seulement HTTP 200)
+# Lire les ports depuis project.json et chercher des patterns métier dans les pages
+DATA_CHECK_RESULT=""
+if [ -f "$PROJECT_DIR/.archipel/project.json" ] && [ -f "$PROJECT_DIR/apps/web/src/lib/api.ts" ]; then
+  PORT_WEB=$(python3 -c "import json; print(json.load(open('$PROJECT_DIR/.archipel/project.json')).get('ports',{}).get('web',3000))" 2>/dev/null || echo "3000")
+  # Lire les patterns de données depuis .archipel/data-patterns.json si existe, sinon patterns génériques
+  PATTERNS_FILE="$PROJECT_DIR/.archipel/data-patterns.json"
+  if [ -f "$PATTERNS_FILE" ]; then
+    PATTERNS=$(python3 -c "import json; print(' '.join(json.load(open('$PATTERNS_FILE')).get('patterns',[])))" 2>/dev/null || echo "")
+  else
+    PATTERNS=""
+  fi
+
+  if [ -n "$PATTERNS" ]; then
+    # Tester les pages principales — chercher les patterns métier
+    export PORT_WEB PATTERNS PROJECT_DIR
+    python3 << 'PYEOF' 2>/dev/null
+import urllib.request, os, re, json
+
+port = os.environ.get('PORT_WEB', '3000')
+patterns = os.environ.get('PATTERNS', '').split()
+proj_dir = os.environ.get('PROJECT_DIR', '')
+
+if not patterns:
+    import sys; sys.exit(0)
+
+# Lire les pages à tester depuis .archipel/data-patterns.json
+pf = os.path.join(proj_dir, '.archipel', 'data-patterns.json')
+pages = json.load(open(pf)).get('pages', ['/']) if os.path.exists(pf) else ['/']
+
+empty_pages = []
+for page in pages:
+    try:
+        html = urllib.request.urlopen(f'http://localhost:{port}{page}', timeout=4).read().decode('utf-8','ignore')
+        found = [p for p in patterns if p in html]
+        if not found:
+            empty_pages.append(page)
+    except:
+        pass  # page inaccessible = skip
+
+if empty_pages:
+    msg = f"Pages sans données métier : {', '.join(empty_pages)}. Les patterns attendus ({', '.join(patterns[:3])}) sont absents."
+    print(json.dumps({'systemMessage': f'⚠️ DONNÉES VIDES — {msg}'}))
+else:
+    import sys; print(f'OK Données présentes sur {len(pages)} page(s)', file=sys.stderr)
+PYEOF
+  fi
+fi
+
 _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-stop\",\"type\":\"success\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"Session stop — git:${UNCOMMITTED:-0} uncommitted\"}"
 
 exit 0

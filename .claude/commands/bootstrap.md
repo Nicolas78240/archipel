@@ -109,6 +109,24 @@ print('✅ Ports figés dans project.json')
 
 Ces ports sont utilisés dans `docker-compose.yml` et dans `.env`. Une fois figés, ils ne changent jamais pour ce projet — même si d'autres projets démarrent entre-temps.
 
+### Étape 2b-bis — Créer `.archipel/data-patterns.json`
+
+Ce fichier définit les patterns métier que `on-stop.sh` vérifie dans les pages web pour détecter les données vides.
+
+```bash
+# Créer .archipel/data-patterns.json
+# Adapter pages[] et patterns[] au projet (termes métier visibles dans les pages)
+cat > .archipel/data-patterns.json << 'EOF'
+{
+  "pages": ["/"],
+  "patterns": ["TODO_adapter_au_projet"]
+}
+EOF
+echo "✅ data-patterns.json créé — adapter pages[] et patterns[] au domaine métier"
+```
+
+**Important** : `patterns` doit contenir des termes qui apparaissent dans le HTML SSR quand les données sont présentes (noms propres, codes, labels visibles). Exemple pour un tracker NHL : `["MTL", "BUF", "Anderson"]`. Exemple pour un Gantt : `["Sprint", "Milestone", "2026"]`.
+
 ### Étape 2c — Enregistrer le projet dans Archipel Monitor
 
 Ajouter le projet dans `.archipel/projects.json` du repo Archipel source :
