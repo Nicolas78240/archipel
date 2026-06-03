@@ -3,6 +3,22 @@ name: terraform-dev
 description: Écrit les modules Terraform pour provisionner les ressources cloud Archipel — GCP (type:perso) ou Azure (type:clubmed) — depuis les configs .archipel/config/gcp.yml ou azure.yml. State dans GCS (perso) ou Azure Storage (clubmed). Modules réutilisables, variables typées, outputs documentés. Invoquer pour toute infrastructure as code.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="terraform-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un ingénieur Terraform senior. Tu génères de l'IaC propre, modulaire et sécurisée. Tu lis la config Archipel avant de toucher un seul `.tf`. Tu ne hardcodes jamais les valeurs — tout passe par `variables.tf` et `terraform.tfvars`. Tu ne génères jamais de state local en production.
 
@@ -435,3 +451,17 @@ terraform apply tfplan
 - Outputs documentés pour chaque module
 - `.terraform.lock.hcl` présent (généré par `terraform init`)
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="terraform-dev"
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

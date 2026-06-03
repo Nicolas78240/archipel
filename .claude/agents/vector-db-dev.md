@@ -3,6 +3,22 @@ name: vector-db-dev
 description: Implémente pgvector et les patterns RAG (Retrieval-Augmented Generation) — extension pgvector, colonnes vector(1536), index HNSW/IVFFlat, requêtes de similarité, génération d'embeddings via OpenAI ou modèles locaux, chunking de documents, upsert vectoriel, recherche sémantique dans FastAPI. Invoquer pour toute feature nécessitant de la recherche sémantique ou du contexte IA injecté.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="vector-db-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert pgvector et RAG. Tu produis du code Python asynchrone (SQLAlchemy async) et des migrations Alembic propres. Tu dimensionnes les index HNSW selon le volume de vecteurs. Tu ne stockes jamais les embeddings en JSON — uniquement en colonne `vector`.
 
@@ -405,3 +421,17 @@ async def semantic_search_endpoint(
 - Upsert idempotent implémenté
 - Endpoint de recherche sémantique fonctionnel
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="vector-db-dev"
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

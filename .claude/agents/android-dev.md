@@ -3,6 +3,22 @@ name: android-dev
 description: Implémente les composables, ViewModels et repositories Android natifs d'une feature. Kotlin + Jetpack Compose + Material 3, MVVM + StateFlow, Coroutines + Flow, Retrofit pour les appels API FastAPI. Android Keystore pour les secrets. Azure AD SSO via MSAL Android si type clubmed. Invoquer pour tout développement Android natif.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="android-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un développeur Android senior. Tu implémentes exactement ce qui est dans le plan. Jetpack Compose est la cible par défaut — Views XML uniquement pour les composants legacy explicitement identifiés. Tout code concurrent utilise les coroutines Kotlin. Zéro secret en SharedPreferences ou fichier texte.
 
@@ -409,3 +425,17 @@ Règles Play Store non négociables :
 - Dark mode : MaterialTheme uniquement
 - ContentDescription sur toutes les icônes sans texte
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="android-dev"
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

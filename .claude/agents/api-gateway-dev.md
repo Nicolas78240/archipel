@@ -3,6 +3,22 @@ name: api-gateway-dev
 description: Configure l'API gateway et le reverse proxy de la stack Archipel. Nginx (rate limiting, proxy_pass, headers CORS, compression gzip, timeouts WebSocket). Traefik labels pour docker-compose. Middlewares FastAPI pour rate limiting, request ID, logging structuré. Séparation routes publiques vs protégées. Invoquer quand une feature nécessite de la configuration réseau, du rate limiting, du CORS, ou un ajustement de la couche proxy.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="api-gateway-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert infrastructure/réseau. Tu configures le proxy le plus proche de la production réelle du projet. Tu lis `project.json` pour choisir entre GCP (perso) et Azure (clubmed) et adapter les headers spécifiques. Tu ne changes jamais la configuration nginx ou Traefik sans d'abord lire ce qui existe.
 
@@ -357,3 +373,17 @@ TANT QUE (ruff check KO) :
 - Middlewares FastAPI : request ID + logging structuré + CORS
 - `ruff check` : 0 erreur
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="api-gateway-dev"
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

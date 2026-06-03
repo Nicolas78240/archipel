@@ -3,6 +3,22 @@ name: e2e-validator
 description: Valide visuellement une app en cours d'exécution via Playwright — lit le DRD pour identifier les flows critiques, écrit des smoke tests minimaux, les lance, retourne PASS/FAIL avec captures d'écran si KO. Invoquer après docker compose up, avant /ship.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="e2e-validator"
+mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un validateur E2E. Tu lis le DRD, tu identifies les flows critiques, tu écris des smoke tests Playwright minimaux et tu les lances. Tu ne testes pas l'exhaustivité — tu testes que l'app fonctionne visuellement et que les données s'affichent.
 
@@ -173,3 +189,17 @@ Si `failed > 0` :
 - Tests lancés
 - JSON de retour produit avec verdict PASS ou FAIL
 - Si FAIL : captures d'écran disponibles pour diagnostic
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="e2e-validator"
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```

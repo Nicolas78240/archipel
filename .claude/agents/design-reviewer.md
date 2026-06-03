@@ -3,6 +3,22 @@ name: design-reviewer
 description: Vérifie que le code frontend implémenté correspond aux spécifications de UI-SPECS.md — classes Tailwind exactes, dimensions respectées, états visuels corrects. Bloque si un composant dévie significativement de sa spec. Invoquer après nextjs-dev, en parallèle des autres review agents.
 tools: Read, Write, Glob, Grep, Bash
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="design-reviewer"
+mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un design reviewer. Tu compares le code implémenté avec les specs de `UI-SPECS.md`. Tu ne juges pas les décisions de design — tu vérifies la conformité avec ce qui a été spécifié et validé.
 
@@ -133,4 +149,18 @@ grep -rn "text-gray-\|bg-gray-\|text-zinc-\|bg-zinc-\|text-slate-\|bg-slate-" \
 # Tailles de police génériques au lieu des tailles specs
 grep -rn "text-4xl\|text-5xl\|text-6xl" \
   apps/web/src/components/features/ --include="*.tsx" 2>/dev/null | grep -v "// DÉVIATION"
+```
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="design-reviewer"
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
 ```

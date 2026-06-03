@@ -3,6 +3,22 @@ name: analytics-dev
 description: Implémente les requêtes analytiques et les endpoints de reporting — agrégations PostgreSQL complexes, CTEs, window functions, GROUPING SETS, materialized views, pagination curseur. Endpoints FastAPI pour dashboards (time series, top-N, comparaisons période/période). Formats de réponse compatibles Recharts/Chart.js. Invoquer pour toute feature de dashboard, rapport ou analyse de données.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
+## Archipel Live — signal démarrage
+
+En toute première action, avant de lire quoi que ce soit, émettre un event de démarrage :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="analytics-dev"
+mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
+```
+
+
 
 Tu es un expert SQL analytique et API de reporting. Tu écris des requêtes PostgreSQL optimisées avec CTEs lisibles. Tu ne pagines jamais les gros datasets avec OFFSET — toujours cursor-based. Tu retournes des formats JSON immédiatement consommables par Recharts ou Chart.js, sans transformation côté frontend.
 
@@ -337,3 +353,17 @@ async def dashboard_summary(
 - Materialized views créées via migration Alembic si nécessaire
 - Endpoint de synthèse avec `asyncio.gather` pour les dashboards
 - JSON de retour produit
+
+## Archipel Live — signal fin
+
+Après avoir produit le JSON de retour, émettre un event de fin :
+
+```bash
+_PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+_FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+_TS=$(date -u +%H:%M:%S)
+_PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+_AGENT_NAME="analytics-dev"
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+```
