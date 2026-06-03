@@ -1245,6 +1245,53 @@ Prêt pour /ship quand tu as validé visuellement.
 
 ---
 
+## Gate [EXEC] — tâches à exécuter, pas juste à implémenter
+
+Certaines tâches dans `tasks.md` sont marquées `[EXEC]`. Elles décrivent une **action à déclencher et un résultat à vérifier** — pas seulement du code à écrire.
+
+**Format dans tasks.md :**
+```markdown
+- [ ] [EXEC] <commande ou action> → <condition de succès mesurable>
+```
+
+**Protocole :**
+
+```bash
+# Lire toutes les tâches [EXEC] du milestone courant
+EXEC_TASKS=$(grep "\[EXEC\]" docs/tasks.md | grep -v "^\s*#")
+echo "$EXEC_TASKS"
+```
+
+Pour chaque tâche `[EXEC]` du milestone :
+1. Exécuter la commande via Bash (curl, docker exec, python3, etc.)
+2. Vérifier que la condition de succès est remplie (COUNT > N, HTTP 200, etc.)
+3. Si la condition n'est pas remplie → déboguer et relancer, **ne pas passer au milestone suivant**
+4. Cocher `[x]` uniquement quand la vérification réelle passe
+
+**Exemples typiques :**
+```bash
+# Synchro de données
+curl -sf -X POST "http://localhost:$PORT_API/admin/sync?sync_type=historical_all" \
+  -H "X-Admin-Secret: $ADMIN_SECRET"
+docker compose exec db psql -U app -d app -c \
+  "SELECT COUNT(*) FROM games WHERE season != '$CURRENT_SEASON';" \
+  | grep -v "^[[:space:]]*0$" || echo "FAIL: données historiques vides"
+
+# Migration Alembic
+docker compose exec api alembic upgrade head
+docker compose exec db psql -U app -d app -c \
+  "SELECT COUNT(*) FROM alembic_version;" | grep -q "1" || echo "FAIL: migration non appliquée"
+
+# Seed de données statiques
+docker compose exec db psql -U app -d app -c \
+  "SELECT COUNT(*) FROM history_captains;" \
+  | grep -vE "^[[:space:]]*[0-4][[:space:]]*$" || echo "FAIL: seed insuffisant (<5)"
+```
+
+**Règle** : une tâche `[EXEC]` non vérifiée = milestone non terminé. Le build-orchestrator ne peut pas valider un milestone avec des `[EXEC]` non cochés.
+
+---
+
 ## Règles absolues
 
 - **Jamais Edit ou Write sur du code applicatif** — ces tools ne sont pas disponibles dans ce frontmatter, c'est intentionnel
@@ -1252,6 +1299,7 @@ Prêt pour /ship quand tu as validé visuellement.
 - **Toute correction passe par un Agent**
 - **Jamais demander à l'humain d'exécuter une commande** — toute commande nécessaire (synchro de données, migration, seed, curl vers l'API) doit être lancée par l'orchestrateur via Bash. Si l'humain doit taper une commande, c'est un bug du protocole.
 - **Validation = vérification réelle, pas "le code est écrit"** — après avoir implémenté une feature qui produit des données, vérifier en DB ou via l'API que les données sont bien présentes avant de clore la tâche
+- **Tâches [EXEC] = gate bloquant** — une tâche marquée [EXEC] dans tasks.md doit être exécutée et sa condition de succès vérifiée avant de clore le milestone. Voir section "Gate [EXEC]" ci-dessus.
 - **Correction de bug = vérification visuelle obligatoire** — après toute correction de bug UI ou data, naviguer sur la page concernée (Playwright ou curl) et confirmer visuellement que le bug est résolu. Sans confirmation visuelle, la tâche n'est PAS close.
 - **Identifier le layer avant de coder** — avant de modifier du code pour corriger un bug, identifier dans quel layer est le problème : frontend (page.tsx), API (router), DB (repository). Ne pas corriger le backend si le bug est dans le frontend.
 - **Bloquer uniquement si** : docker build impossible après 3 tentatives, DESIGN-SYSTEM.md absent après 3 essais, finding critique non résolu après 3 corrections
