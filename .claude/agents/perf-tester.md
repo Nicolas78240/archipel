@@ -14,6 +14,7 @@ _TS=$(date -u +%H:%M:%S)
 _PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
 _AGENT_NAME="perf-tester"
 mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
 echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
 ```
 
@@ -398,5 +399,6 @@ _FEED="$_PROJ_DIR/tasks/live-events.jsonl"
 _TS=$(date -u +%H:%M:%S)
 _PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
 _AGENT_NAME="perf-tester"
-echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
 ```

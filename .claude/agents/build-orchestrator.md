@@ -14,6 +14,7 @@ _TS=$(date -u +%H:%M:%S)
 _PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
 _AGENT_NAME="build-orchestrator"
 mkdir -p "$_PROJ_DIR/tasks"
+_AGENT_START=$SECONDS
 echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"agent\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME started\"}" >> "$_FEED" 2>/dev/null || true
 ```
 
@@ -855,6 +856,17 @@ Attendre les **5 JSON** de retour.
 ```
 TANT QUE (findings critiques > 0 OU findings majeurs > 0) :
 
+  # ── Archipel Live : signal rework ──────────────────────────────
+  # Émettre un event rework dans le feed pour que le dashboard l'affiche
+  _PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  _FEED="$_PROJ_DIR/tasks/live-events.jsonl"
+  _TS=$(date -u +%H:%M:%S)
+  _PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
+  # Détecter le milestone courant (source du rework)
+  _REWORK_FROM=$(python3 -c "import json; d=json.load(open('.archipel/build-state.json')); print(d.get('current','feature'))" 2>/dev/null || echo "feature")
+  echo "{\"ts\":\"$_TS\",\"hook\":\"build-orchestrator\",\"type\":\"blocked\",\"project\":\"$_PROJ\",\"msg\":\"Findings critiques/majeurs → REWORK\",\"rework\":{\"from\":\"review\",\"to\":\"$_REWORK_FROM\"}}" >> "$_FEED" 2>/dev/null || true
+  # ─────────────────────────────────────────────────────────────
+
   Pour chaque finding :
 
     # KAI-02 : Diagnostic layer obligatoire avant de coder (leçon V5)
@@ -1356,5 +1368,6 @@ _FEED="$_PROJ_DIR/tasks/live-events.jsonl"
 _TS=$(date -u +%H:%M:%S)
 _PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
 _AGENT_NAME="build-orchestrator"
-echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
+_AGENT_DUR=$(( (SECONDS - ${_AGENT_START:-0}) * 1000 ))
+echo "{\"ts\":\"$_TS\",\"hook\":\"agent\",\"type\":\"ok\",\"project\":\"$_PROJ\",\"agent\":\"$_AGENT_NAME\",\"dur\":$_AGENT_DUR,\"msg\":\"$_AGENT_NAME done\"}" >> "$_FEED" 2>/dev/null || true
 ```
