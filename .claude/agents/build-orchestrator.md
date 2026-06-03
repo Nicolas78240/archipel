@@ -183,7 +183,34 @@ cat docs/ADR.md 2>/dev/null
 grep -B 1 -A 8 "#architecture\|#db\|#resilience" tasks/lessons.md 2>/dev/null || echo "Aucune leçon"
 ```
 
-### 0b. Validation Docker — GATE BLOQUANT
+### 0b-bis. Couverture PRD → tasks.md — GATE BLOQUANT
+
+**Toute feature du PRD doit avoir au moins une tâche dans tasks.md. Ce gate s'exécute une seule fois, avant le premier milestone.**
+
+```bash
+# Lire les deux fichiers
+PRD_CONTENT=$(cat docs/PRD.md 2>/dev/null || echo "")
+TASKS_CONTENT=$(cat docs/tasks.md 2>/dev/null || echo "")
+```
+
+Pour chaque feature listée dans `docs/PRD.md` (sections "Goals MVP", "Features MVP", user stories US-XX) :
+1. Chercher une entrée correspondante dans `docs/tasks.md` (même concept, même périmètre)
+2. Si une feature du PRD n'a **aucune** tâche correspondante → l'ajouter dans `docs/tasks.md` au milestone le plus approprié
+3. Logger les ajouts : `⚠️  Feature PRD sans tâche : "<feature>" → ajoutée à <milestone>`
+
+**Exemples de correspondances à vérifier :**
+- PRD `5.4 Détail joueur (/roster/[id])` → tasks.md doit contenir `/roster/[id]` ou `PlayerCard` ou `trading card`
+- PRD `5.7 Histoire` → tasks.md doit contenir `/histoire` ou `history_captains`
+- PRD `US-04 Consulter stats joueur` → tasks.md doit couvrir l'endpoint ET la page frontend
+
+**Ne pas bloquer le build** — ajouter les tâches manquantes et continuer. Mais logger clairement ce qui a été ajouté pour que l'humain puisse valider.
+
+```bash
+# Mettre à jour tasks.md si des tâches ont été ajoutées
+# Utiliser Write pour ajouter les tâches manquantes au bon milestone
+```
+
+### 0b-ter. Validation Docker — GATE BLOQUANT
 
 **Docker non disponible = arrêt immédiat. Pas de skip silencieux.**
 
