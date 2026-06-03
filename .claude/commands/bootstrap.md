@@ -263,6 +263,61 @@ echo "     export ATLASSIAN_URL=https://xxx.atlassian.net"
 echo "     export ATLASSIAN_EMAIL=xxx"
 echo "     export ATLASSIAN_API_TOKEN=xxx"
 
+# Générer CLAUDE.md — lu automatiquement par Claude Code à chaque session
+PROJECT_NAME=$(python3 -c "import json; print(json.load(open('.archipel/project.json'))['name'])" 2>/dev/null || echo "<nom>")
+PORT_WEB=$(python3 -c "import json; print(json.load(open('.archipel/project.json')).get('ports',{}).get('web',3000))" 2>/dev/null || echo "3000")
+PORT_API=$(python3 -c "import json; print(json.load(open('.archipel/project.json')).get('ports',{}).get('api',8000))" 2>/dev/null || echo "8000")
+PORT_DB=$(python3 -c "import json; print(json.load(open('.archipel/project.json')).get('ports',{}).get('db',5432))" 2>/dev/null || echo "5432")
+
+cat > CLAUDE.md << CLAUDEEOF
+# CLAUDE.md — $PROJECT_NAME
+
+Projet **Archipel**. Ports : web=$PORT_WEB, api=$PORT_API, db=$PORT_DB.
+
+---
+
+## Démarrage
+
+\`\`\`bash
+/build    # Lance le build complet via build-orchestrator (M1 → dernier milestone)
+\`\`\`
+
+**\`/build\` invoque \`build-orchestrator\`** qui orchestre tout de façon autonome.
+Ne jamais invoquer les agents manuellement — passer par \`/build\`.
+Pour reprendre un build interrompu : \`/build\` relit \`.archipel/build-state.json\`.
+
+---
+
+## Structure
+
+\`\`\`
+docs/
+  PRD.md          ← vision, user stories, specs features
+  tasks.md        ← backlog avec tags [EXEC] (actions à vérifier en DB/API)
+  IMPL-*.md       ← plans techniques générés par architect pendant le build
+tasks/
+  lessons.md      ← leçons des builds précédents — lues par les agents
+  live-events.jsonl ← feed Archipel Live (non versionné)
+.archipel/
+  project.json    ← config (nom, ports, stack, cloud)
+  build-state.json ← état du build en cours
+\`\`\`
+
+---
+
+## Règles critiques
+
+| Règle | Détail |
+|-------|--------|
+| **Jamais coder directement** | Toujours passer par un agent via \`/build\` ou \`/feature\` |
+| **Gates [EXEC]** | Tâche \`[EXEC]\` dans tasks.md = exécuter ET vérifier avant de clore le milestone |
+| **float pas Decimal** | Colonnes NUMERIC PostgreSQL → \`float\` dans Pydantic (pas \`Decimal\`) |
+| **PagedResponse normalisé** | Les helpers \`api.ts\` retournent l'array directement, jamais \`data.items\` dans les pages |
+| **dynamic(ssr:false)** | Uniquement dans un fichier \`"use client"\` — jamais dans un Server Component |
+CLAUDEEOF
+
+echo "✅ CLAUDE.md généré"
+
 # Git init et premier commit
 git init
 git add .
