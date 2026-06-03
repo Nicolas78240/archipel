@@ -41,6 +41,7 @@ Les noms de services Cloud sont dérivés automatiquement depuis `name` (slugifi
   "name": "<nom>",
   "description": "<description>",
   "type": "<perso|clubmed>",
+  "stage": "discover",
   "stack": ["<nextjs>", "<python-api>", "<workers>"],
   "postgresql": "<cloud-managed|self-hosted>",
   "git_remote": "<github|gitlab>",

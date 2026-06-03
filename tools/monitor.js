@@ -171,14 +171,23 @@ http.createServer((req, res) => {
   if (url.pathname === "/projects") {
     const projects = loadProjects();
 
-    // Lire les agents utilisés dans un projet (depuis .claude/agents/)
+    // Lire les agents réellement invoqués dans un projet (depuis le feed live-events.jsonl)
+    // Retourne uniquement les agents qui ont émis un event "started" — pas tout le catalogue
     function readAgents(projectPath) {
-      const agentsDir = path.join(projectPath, ".claude", "agents");
-      if (!fs.existsSync(agentsDir)) return [];
+      const feedPath = path.join(projectPath, "tasks", "live-events.jsonl");
+      if (!fs.existsSync(feedPath)) return [];
       try {
-        return fs.readdirSync(agentsDir)
-          .filter(f => /\.md$/.test(f))
-          .map(f => path.basename(f, ".md"));
+        const lines = fs.readFileSync(feedPath, "utf8").split("\n").filter(l => l.trim());
+        const agents = new Set();
+        for (const line of lines) {
+          try {
+            const ev = JSON.parse(line);
+            if (ev.agent && (ev.type === "agent" || ev.type === "ok")) {
+              agents.add(ev.agent);
+            }
+          } catch {}
+        }
+        return [...agents];
       } catch { return []; }
     }
 
