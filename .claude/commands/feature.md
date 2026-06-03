@@ -67,6 +67,18 @@ JIRA=$(python3 -c "import json; d=json.load(open('.archipel/project.json')); pri
 **Mode Jira** (`jira_project` défini) : pull le ticket via MCP Atlassian, passer en "In Progress".
 **Mode solo** : lire la description depuis `docs/tasks.md` ou l'argument CLI.
 
+**Archipel Live — enregistrer le projet cible** : si le projet courant n'est pas Archipel lui-même (i.e. si le répertoire du projet est différent de `CLAUDE_PROJECT_DIR`), écrire le chemin absolu du projet cible dans `.archipel/active-build-target` du repo Archipel, pour que les hooks de monitoring redirigent les événements vers le bon feed.
+
+```bash
+# Détecter le chemin absolu du projet cible (argument CLI ou pwd)
+PROJECT_TARGET="<chemin absolu du projet cible>"
+ARCHIPEL_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null)
+if [ "$PROJECT_TARGET" != "$ARCHIPEL_ROOT" ]; then
+  echo "$PROJECT_TARGET" > "$ARCHIPEL_ROOT/.archipel/active-build-target"
+  echo "[Archipel Live] Build target : $PROJECT_TARGET"
+fi
+```
+
 ### Étape 1 — Créer la branche
 
 ```bash
@@ -237,6 +249,14 @@ git push origin feat/<id>
 
 **Mode Jira :** passer en "In Review" via MCP Atlassian + commentaire fichiers modifiés.
 **Mode solo :** cocher dans `docs/tasks.md`.
+
+**Archipel Live — nettoyer le build target** :
+
+```bash
+ARCHIPEL_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null)
+rm -f "$ARCHIPEL_ROOT/.archipel/active-build-target"
+echo "[Archipel Live] Build target effacé"
+```
 
 ---
 
