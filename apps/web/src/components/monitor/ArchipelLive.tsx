@@ -18,8 +18,8 @@ interface PoolEntry { msg: string; type: EventType; ag: string | null; hook?: st
 interface HookDef { id: string; event: string; name: string; desc: string; color: string; }
 interface StarDef { cx: number; cy: number; r: number; op: number; }
 
+// build-orchestrator est un nœud séparé au-dessus du pipeline — pas dans les agents
 const AGENT_DEFS: AgentDef[] = [
-  { id:"build-orchestrator",    stage:"discover", layer:"Orchestration", name:"Build Orchestrator", desc:"Orchestre l'intégralité du build. Ne touche jamais au code. Délègue via IMPL-*.md." },
   { id:"architect",             stage:"spec",    layer:"Orchestration", name:"Architect",          desc:"Produit docs/IMPL-*.md — le plan technique consommé par tous les agents dev." },
   { id:"creative-director",     stage:"design",  layer:"Design",        name:"Creative Director",  desc:"Direction visuelle, palette, typographie → CREATIVE-BRIEF.md." },
   { id:"design-system",         stage:"design",  layer:"Design",        name:"Design System",      desc:"Tokens Tailwind, globals.css, composants métier → DESIGN-SYSTEM.md." },
@@ -74,16 +74,16 @@ const AGENTS: Agent[] = AGENT_DEFS.map(a => { const si = IDX[a.stage] ?? 3; retu
 const DEMO_PROJECTS: Project[] = [
   { name:"ErgWarrior",  stage:"review",  color:"#f6ad55", type:"perso",   cloud:"GCP",   sessions:23, hooks:341,
     desc:"iOS gamified BikeErg — Boss Fight / Ghost Race / RPG",
-    used:new Set(["build-orchestrator","architect","creative-director","design-system","ui-designer","design-reviewer","ios-dev","accessibility","test-writer","perf-tester","contract-tester","review-security","review-architecture","review-performance","review-maintainability","review-resilience","infra-gcp","devops","monitoring-dev","doc-writer","cost-analyzer","kaizen"]) },
+    used:new Set(["architect","creative-director","design-system","ui-designer","design-reviewer","ios-dev","accessibility","test-writer","perf-tester","contract-tester","review-security","review-architecture","review-performance","review-maintainability","review-resilience","infra-gcp","devops","monitoring-dev","doc-writer","cost-analyzer","kaizen"]) },
   { name:"PixFarm",     stage:"feature", color:"#f6e05e", type:"perso",   cloud:"GCP",   sessions:14, hooks:218,
     desc:"Next.js + FastAPI — Claude Code sessions as pixel art",
-    used:new Set(["build-orchestrator","architect","nextjs-dev","fastapi-dev","db-dev","dba","cache-dev","websocket-dev","test-writer","e2e-validator","contract-tester","review-security","review-architecture","review-performance","review-maintainability","review-resilience","infra-gcp","devops","monitoring-dev","doc-writer","cost-analyzer"]) },
+    used:new Set(["architect","nextjs-dev","fastapi-dev","db-dev","dba","cache-dev","websocket-dev","test-writer","e2e-validator","contract-tester","review-security","review-architecture","review-performance","review-maintainability","review-resilience","infra-gcp","devops","monitoring-dev","doc-writer","cost-analyzer"]) },
   { name:"DesignHerd",  stage:"feature", color:"#63b3ed", type:"clubmed", cloud:"Azure", sessions:9,  hooks:127,
     desc:"Internal design QA — Jira bidirectional sync",
-    used:new Set(["build-orchestrator","architect","creative-director","design-system","ui-designer","design-reviewer","nextjs-dev","fastapi-dev","db-dev","auth-dev","websocket-dev","integration-dev","test-writer","review-security","review-architecture","review-performance","review-maintainability","review-resilience","infra-azure","devops","terraform-dev","monitoring-dev","doc-writer","cost-analyzer"]) },
+    used:new Set(["architect","creative-director","design-system","ui-designer","design-reviewer","nextjs-dev","fastapi-dev","db-dev","auth-dev","websocket-dev","integration-dev","test-writer","review-security","review-architecture","review-performance","review-maintainability","review-resilience","infra-azure","devops","terraform-dev","monitoring-dev","doc-writer","cost-analyzer"]) },
   { name:"DartFlow",    stage:"design",  color:"#4fd1c5", type:"perso",   cloud:"GCP",   sessions:4,  hooks:52,
     desc:"Darts training tracker — ErgWarrior sister app",
-    used:new Set(["build-orchestrator","architect","creative-director","design-system","ui-designer","ios-dev","test-writer","review-security","review-architecture","review-maintainability","review-resilience","infra-gcp","devops","cost-analyzer"]) },
+    used:new Set(["architect","creative-director","design-system","ui-designer","ios-dev","test-writer","review-security","review-architecture","review-maintainability","review-resilience","infra-gcp","devops","cost-analyzer"]) },
 ];
 
 const HOOK_DEFS: HookDef[] = [
@@ -365,6 +365,8 @@ export default function ArchipelLive() {
   const [fading,   setFading]  = useState(false);
   const [firing,      setFiring]      = useState<Set<string>>(new Set());
   const [firingHooks, setFiringHooks] = useState<Set<string>>(new Set());
+  // État persistant de l'orchestrateur — actif tant que le build tourne (pas juste 3s)
+  const [orchestratorRunning, setOrchestratorRunning] = useState(false);
   const [reworks,  setReworks] = useState<Rework[]>([]);
   const [tooltip,  setTooltip] = useState<TooltipState | null>(null);
   const [allH,     setAllH]    = useState(DEMO_PROJECTS.map(p => p.hooks));
@@ -376,7 +378,10 @@ export default function ArchipelLive() {
   useEffect(() => {
     const demo = new URLSearchParams(window.location.search).get("demo") === "true";
     setIsDemo(demo);
-    if (demo) return;
+    if (demo) {
+      setOrchestratorRunning(true); // en démo, l'orchestrateur est toujours actif
+      return;
+    }
 
     fetch(`${MONITOR_URL}/projects`)
       .then(r => r.json())
@@ -501,6 +506,11 @@ export default function ArchipelLive() {
     if (e.ag) {
       setFiring(p => { const n = new Set(p); n.add(e.ag!); return n; });
       setTimeout(() => setFiring(p => { const n = new Set(p); n.delete(e.ag!); return n; }), 3000);
+      // Orchestrateur : started → actif persistant, done → inactif
+      if (e.ag === "build-orchestrator") {
+        if (e.type === "agent") setOrchestratorRunning(true);
+        if (e.type === "ok") setOrchestratorRunning(false);
+      }
     }
     if (e.hook) {
       setFiringHooks(p => { const n = new Set(p); n.add(e.hook!); return n; });
@@ -609,45 +619,53 @@ export default function ArchipelLive() {
 
             {/* ══ BUILD ORCHESTRATOR — nœud central au-dessus du pipeline ══ */}
             {(() => {
-              const OX = VW / 2;        // centré horizontalement
-              const OY = 42;            // au-dessus du pipeline
-              const OR = 18;            // rayon
-              const isActive = firing.has("build-orchestrator");
-              const oc = "#63b3ed";     // couleur orchestrateur — bleu ciel
+              const OX = VW / 2;
+              const OY = 48;
+              const OR = 20;
+              const isActive = orchestratorRunning || firing.has("build-orchestrator");
+              const oc = "#63b3ed";
               return (
                 <g key="orchestrator">
-                  {/* Lignes vers chaque nœud du pipeline */}
+                  {/* Lignes vers chaque nœud */}
                   {STAGES.map((st, i) => {
                     const tx = sx(i), ty = NY - NR - 2;
                     const done = i < curSi;
+                    const isCur = i === curSi;
                     return (
                       <line key={st.id}
-                        x1={OX} y1={OY + OR}
+                        x1={OX} y1={OY + OR + 2}
                         x2={tx} y2={ty}
-                        stroke={done ? `${oc}40` : `${oc}15`}
-                        strokeWidth={done ? 1 : 0.6}
-                        strokeDasharray={isActive ? undefined : "4 4"}
+                        stroke={isActive && isCur ? oc : done ? `${oc}35` : `${oc}12`}
+                        strokeWidth={isActive && isCur ? 1.5 : done ? 0.8 : 0.5}
+                        strokeDasharray={isActive ? (isCur ? undefined : "5 5") : "3 5"}
+                        opacity={isActive ? 1 : 0.5}
                       />
                     );
                   })}
-                  {/* Halo si actif */}
-                  {isActive && <circle cx={OX} cy={OY} r={OR + 18} fill={`${oc}12`} className="hl"/>}
+                  {/* Halo extérieur pulsant si actif */}
+                  {isActive && <circle cx={OX} cy={OY} r={OR + 22} fill={`${oc}08`} className="hl"/>}
+                  {isActive && <circle cx={OX} cy={OY} r={OR + 10} fill={`${oc}10`} className="hl" style={{animationDelay:"0.4s"}}/>}
+                  {/* Ring animé si actif */}
+                  {isActive && <circle cx={OX} cy={OY} r={OR} fill="none" stroke={oc} strokeWidth={1.5} className="pr"/>}
                   {/* Cercle principal */}
                   <circle cx={OX} cy={OY} r={OR}
-                    fill={isActive ? `${oc}25` : "rgba(255,255,255,0.03)"}
-                    stroke={isActive ? oc : `${oc}55`}
+                    fill={isActive ? `${oc}22` : "rgba(255,255,255,0.025)"}
+                    stroke={isActive ? oc : `${oc}40`}
                     strokeWidth={isActive ? 2 : 1}
                   />
                   {/* Symbole ⬡ */}
-                  <text x={OX} y={OY} textAnchor="middle" dominantBaseline="middle"
-                    fontSize={13} fill={isActive ? oc : `${oc}80`}
+                  <text x={OX} y={OY + 1} textAnchor="middle" dominantBaseline="middle"
+                    fontSize={isActive ? 15 : 13}
+                    fill={isActive ? oc : `${oc}70`}
                     fontFamily="JetBrains Mono,monospace">⬡</text>
-                  {/* Label */}
-                  <text x={OX} y={OY - OR - 6} textAnchor="middle"
-                    fontSize={7} fill={isActive ? oc : `${oc}60`}
+                  {/* Label sous le nœud */}
+                  <text x={OX} y={OY + OR + 12} textAnchor="middle"
+                    fontSize={7.5}
+                    fill={isActive ? oc : `${oc}50`}
                     fontFamily="JetBrains Mono,monospace"
-                    fontWeight={isActive ? "700" : "400"}>
-                    orchestrator
+                    fontWeight={isActive ? "700" : "400"}
+                    letterSpacing="0.08em">
+                    {isActive ? "● ORCHESTRATING" : "orchestrator"}
                   </text>
                 </g>
               );
