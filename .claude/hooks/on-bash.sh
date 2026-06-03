@@ -13,17 +13,16 @@ else
   _MONITOR_PROJ=$(python3 -c     "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))"     2>/dev/null || echo "?")
 fi
 _monitor_push() {
-  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
-  # Si un build target est actif, pousser aussi dans son feed
   _TARGET_FILE="$_MONITOR_ROOT/.archipel/active-build-target"
   if [ -f "$_TARGET_FILE" ]; then
     _TARGET_PATH=$(cat "$_TARGET_FILE" 2>/dev/null)
-    _TARGET_FEED="$_TARGET_PATH/tasks/live-events.jsonl"
     if [ -n "$_TARGET_PATH" ] && [ -d "$_TARGET_PATH" ]; then
       mkdir -p "$_TARGET_PATH/tasks" 2>/dev/null || true
-      echo "$1" >> "$_TARGET_FEED" 2>/dev/null || true
+      echo "$1" >> "$_TARGET_PATH/tasks/live-events.jsonl" 2>/dev/null || true
+      return
     fi
   fi
+  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
 }
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -37,7 +36,7 @@ if echo "$COMMAND" | grep -q "git push" && echo "$COMMAND" | grep -q "\-\-force\
   CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
   if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
     echo "BLOQUE : git push --force sur $CURRENT_BRANCH est interdit" >&2
-    _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
+    _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
     exit 2
   fi
 fi
@@ -47,7 +46,7 @@ if echo "$COMMAND" | grep -q "git push"; then
   if command -v gitleaks &>/dev/null; then
     gitleaks detect --no-git 2>/dev/null || {
       echo "BLOQUE : gitleaks a detecte des secrets — corriger avant de pusher" >&2
-      _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
+      _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
       exit 2
     }
   fi
@@ -74,7 +73,7 @@ fi
 if echo "$COMMAND" | grep -q "docker compose down" && echo "$COMMAND" | grep -q "\-v\b"; then
   echo "BLOQUE : docker compose down -v supprime les volumes PostgreSQL (perte de donnees)" >&2
   echo "Utiliser 'docker compose down' sans -v pour arreter sans supprimer les donnees" >&2
-  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
+  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
   exit 2
 fi
 
@@ -82,7 +81,7 @@ fi
 if echo "$COMMAND" | grep -qiE "DROP TABLE|DROP COLUMN|TRUNCATE"; then
   echo "BLOQUE : operation SQL destructive detectee" >&2
   echo "Utiliser Alembic (migration versionnee) plutot que du SQL direct" >&2
-  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
+  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"GATE blocked\"}"
   exit 2
 fi
 
@@ -101,6 +100,6 @@ PYEOF
   exit 0
 fi
 
-_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash.sh\",\"type\":\"ok\",\"project\":\"$_MONITOR_PROJ\",\"msg\":$(python3 -c "import sys,json;print(json.dumps(sys.argv[1][:80]))" "$COMMAND" 2>/dev/null || echo "\"bash\"")}"
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-bash\",\"type\":\"ok\",\"project\":\"$_MONITOR_PROJ\",\"msg\":$(python3 -c "import sys,json;print(json.dumps(sys.argv[1][:80]))" "$COMMAND" 2>/dev/null || echo "\"bash\"")}"
 
 exit 0

@@ -13,15 +13,18 @@ else
   _MONITOR_PROJ=$(python3 -c     "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))"     2>/dev/null || echo "?")
 fi
 _monitor_push() {
-  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
+  # Si un build target est actif, écrire UNIQUEMENT dans son feed (pas de doublon)
+  # Sinon écrire dans le feed Archipel
   _TARGET_FILE="$_MONITOR_ROOT/.archipel/active-build-target"
   if [ -f "$_TARGET_FILE" ]; then
     _TARGET_PATH=$(cat "$_TARGET_FILE" 2>/dev/null)
     if [ -n "$_TARGET_PATH" ] && [ -d "$_TARGET_PATH" ]; then
       mkdir -p "$_TARGET_PATH/tasks" 2>/dev/null || true
       echo "$1" >> "$_TARGET_PATH/tasks/live-events.jsonl" 2>/dev/null || true
+      return
     fi
   fi
+  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
 }
 # ──────────────────────────────────────────────────────────────────────────
 

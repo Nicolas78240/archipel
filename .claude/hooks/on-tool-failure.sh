@@ -13,15 +13,18 @@ else
   _MONITOR_PROJ=$(python3 -c     "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))"     2>/dev/null || echo "?")
 fi
 _monitor_push() {
-  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
+  # Si un build target est actif, écrire UNIQUEMENT dans son feed (pas de doublon)
+  # Sinon écrire dans le feed Archipel
   _TARGET_FILE="$_MONITOR_ROOT/.archipel/active-build-target"
   if [ -f "$_TARGET_FILE" ]; then
     _TARGET_PATH=$(cat "$_TARGET_FILE" 2>/dev/null)
     if [ -n "$_TARGET_PATH" ] && [ -d "$_TARGET_PATH" ]; then
       mkdir -p "$_TARGET_PATH/tasks" 2>/dev/null || true
       echo "$1" >> "$_TARGET_PATH/tasks/live-events.jsonl" 2>/dev/null || true
+      return
     fi
   fi
+  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
 }
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -46,8 +49,27 @@ except:
     print(json.dumps({'systemMessage': 'TOOL FAILURE : details unavailable'}))
 PYEOF
 
-TOOL_NAME_VAL=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('tool_name', d.get('tool', 'unknown')))" 2>/dev/null || echo "unknown")
-_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-tool-failure\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"TOOL FAILURE: $TOOL_NAME_VAL\"}"
+export HOOK_INPUT_FOR_MONITOR="$INPUT"
+MONITOR_MSG=$(python3 << 'PYEOF3' 2>/dev/null
+import json, os, sys
+try:
+    d = json.loads(os.environ['HOOK_INPUT_FOR_MONITOR'])
+    tool = d.get('tool_name', d.get('tool', 'unknown'))
+    inp = d.get('tool_input', {})
+    cmd = inp.get('command', inp.get('file_path', ''))
+    err = str(d.get('error', d.get('tool_result', '')))
+    # Message court : tool + début de la commande + début de l'erreur
+    cmd_short = cmd[:50].replace('"','').replace('\n',' ') if cmd else ''
+    err_short = err[:60].replace('"','').replace('\n',' ') if err else ''
+    parts = [f"[{tool}]"]
+    if cmd_short: parts.append(cmd_short)
+    if err_short: parts.append(f"→ {err_short}")
+    print(' '.join(parts))
+except:
+    print("TOOL FAILURE: details unavailable")
+PYEOF3
+)
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-tool-failure\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"FAIL: $MONITOR_MSG\"}"
 
 # Audit log séparé (stderr pour ne pas polluer stdout JSON)
 python3 << PYEOF2 >> "$PROJECT_DIR/.archipel/audit.log" 2>/dev/null

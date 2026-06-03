@@ -204,20 +204,22 @@ function Tooltip({ agent, x, y }: { agent: Agent; x: number; y: number }) {
 function AgentPill({ agent, state, firing }: { agent: Agent; state: string; firing: boolean }) {
   let bg: string, bd: string, tx: string, ld: string, gs: string;
   if (firing) {
-    bg=`${agent.color}20`; bd=`${agent.color}88`; tx=agent.color; ld=agent.color; gs=`0 0 7px ${agent.color}`;
+    // État FIRING : très visible, fond coloré + glow fort
+    bg=`${agent.color}28`; bd=agent.color; tx=agent.color; ld=agent.color; gs=`0 0 10px ${agent.color}99`;
   } else if (state === "ACTIVE") {
-    bg=`${agent.color}10`; bd=`${agent.color}44`; tx=agent.color; ld=agent.color; gs=`0 0 4px ${agent.color}`;
+    bg=`${agent.color}12`; bd=`${agent.color}55`; tx=`${agent.color}cc`; ld=`${agent.color}88`; gs=`0 0 4px ${agent.color}44`;
   } else if (state === "NEXT") {
-    bg="rgba(255,255,255,0.03)"; bd="rgba(255,255,255,0.10)"; tx="#7a9ab8"; ld="#4a6070"; gs="none";
+    bg="rgba(255,255,255,0.03)"; bd="rgba(255,255,255,0.12)"; tx="#8aaac0"; ld="#4a6070"; gs="none";
   } else if (state === "DONE") {
-    bg="transparent"; bd="rgba(255,255,255,0.05)"; tx="#3a5468"; ld="#2a3c4c"; gs="none";
+    bg="transparent"; bd="rgba(255,255,255,0.05)"; tx="#4a6070"; ld="#2a3c4c"; gs="none";
   } else {
-    bg="transparent"; bd="rgba(255,255,255,0.03)"; tx="#253444"; ld="#1a2838"; gs="none";
+    bg="transparent"; bd="rgba(255,255,255,0.03)"; tx="#2a3c4c"; ld="#1a2838"; gs="none";
   }
   return (
-    <div style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:3,marginBottom:2,background:bg,border:`1px solid ${bd}`,transition:"all 0.28s"}}>
-      <div style={{width:4,height:4,borderRadius:"50%",flexShrink:0,background:ld,boxShadow:gs,transition:"all 0.28s"}}/>
-      <span style={{fontSize:7.5,color:tx,fontFamily:"'JetBrains Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{agent.name}</span>
+    <div style={{display:"flex",alignItems:"center",gap:4,padding:firing?"3px 7px":"2px 6px",borderRadius:3,marginBottom:2,background:bg,border:`1px solid ${bd}`,transition:"all 0.25s",boxShadow:firing?`0 0 12px ${agent.color}33`:"none"}}>
+      <div style={{width:firing?5:4,height:firing?5:4,borderRadius:"50%",flexShrink:0,background:firing?ld:"transparent",border:firing?"none":`1px solid ${ld}`,boxShadow:gs,transition:"all 0.25s"}}/>
+      <span style={{fontSize:firing?8:7.5,color:tx,fontFamily:"'JetBrains Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,fontWeight:firing?700:400}}>{agent.name}</span>
+      {firing && <span style={{fontSize:6.5,color:agent.color,flexShrink:0,animation:"blink 0.8s step-end infinite"}}>▶</span>}
       {state === "DONE" && !firing && <span style={{fontSize:6,color:"#3a5468",flexShrink:0}}>✓</span>}
     </div>
   );
@@ -240,8 +242,24 @@ function AgentsSection({ proj, curSi, firing, firingHooks, setTooltip }: { proj:
   const agState = (a: Agent) => a.si < curSi ? "DONE" : a.si === curSi ? "ACTIVE" : a.si === curSi + 1 ? "NEXT" : "PENDING";
   const [hookTooltip, setHookTooltip] = React.useState<{ hook: HookDef; x: number; y: number } | null>(null);
 
+  const firingAgents = AGENTS.filter(a => firing.has(a.id));
+
   return (
     <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
+
+      {/* ── Bandeau agents en cours ── */}
+      {firingAgents.length > 0 && (
+        <div style={{padding:"6px 14px",background:"rgba(99,179,237,0.07)",borderBottom:"1px solid rgba(99,179,237,0.20)",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <span style={{fontSize:7,color:"#63b3ed",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.1em",fontWeight:700,flexShrink:0}}>▶ EN COURS</span>
+          {firingAgents.map(a => (
+            <div key={a.id} style={{display:"flex",alignItems:"center",gap:5,padding:"2px 8px",borderRadius:3,background:`${a.color}20`,border:`1px solid ${a.color}`,boxShadow:`0 0 8px ${a.color}44`}}>
+              <div style={{width:5,height:5,borderRadius:"50%",background:a.color,boxShadow:`0 0 6px ${a.color}`,animation:"blink 0.8s step-end infinite"}}/>
+              <span style={{fontSize:8,color:a.color,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{a.name}</span>
+              <span style={{fontSize:6.5,color:`${a.color}88`,fontFamily:"'JetBrains Mono',monospace"}}>{a.layer}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Agents assignés ── */}
       <div style={{padding:"7px 14px 5px",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
@@ -254,7 +272,6 @@ function AgentsSection({ proj, curSi, firing, firingHooks, setTooltip }: { proj:
                 {l.toLowerCase()}
               </span>
             ))}
-            {firing.size > 0 && <span style={{fontSize:6.5,color:RWC,fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>● {firing.size} firing</span>}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5}}>
@@ -408,10 +425,12 @@ export default function ArchipelLive() {
       es.onopen = () => setLive(true);
       es.onmessage = e => {
         try {
-          const d = JSON.parse(e.data as string) as { type?: string; project?: string; ts?: string; msg?: string; dur?: number; agent?: string; rework?: { from: StageId; to: StageId } };
+          const d = JSON.parse(e.data as string) as { type?: string; project?: string; ts?: string; msg?: string; dur?: number; agent?: string; hook?: string; rework?: { from: StageId; to: StageId } };
           if (d.type === "connected") return;
           if (d.project && d.project !== projects[piRef.current]?.name) return;
-          push({ id: ++uid, ts: d.ts ?? ts(), type: (d.type ?? "ok") as EventType, msg: d.msg ?? "", dur: d.dur ?? null, ag: d.agent ?? null, rw: d.rework ?? null }, piRef.current);
+          // Construire un message lisible si vide
+          const msg = d.msg || (d.agent ? `${d.agent} — ${d.type ?? "ok"}` : d.hook ? `${d.hook} triggered` : "event");
+          push({ id: ++uid, ts: d.ts ?? ts(), type: (d.type ?? "ok") as EventType, msg, dur: d.dur ?? null, ag: d.agent ?? null, hook: d.hook, rw: d.rework ?? null }, piRef.current);
         } catch { /* ignore parse errors */ }
       };
       es.onerror = () => setLive(false);

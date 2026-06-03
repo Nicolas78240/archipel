@@ -13,15 +13,18 @@ else
   _MONITOR_PROJ=$(python3 -c     "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))"     2>/dev/null || echo "?")
 fi
 _monitor_push() {
-  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
+  # Si un build target est actif, écrire UNIQUEMENT dans son feed (pas de doublon)
+  # Sinon écrire dans le feed Archipel
   _TARGET_FILE="$_MONITOR_ROOT/.archipel/active-build-target"
   if [ -f "$_TARGET_FILE" ]; then
     _TARGET_PATH=$(cat "$_TARGET_FILE" 2>/dev/null)
     if [ -n "$_TARGET_PATH" ] && [ -d "$_TARGET_PATH" ]; then
       mkdir -p "$_TARGET_PATH/tasks" 2>/dev/null || true
       echo "$1" >> "$_TARGET_PATH/tasks/live-events.jsonl" 2>/dev/null || true
+      return
     fi
   fi
+  echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
 }
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -34,7 +37,7 @@ mkdir -p "$PROJECT_DIR/.archipel"
 # StopFailure : diagnostic immediat
 if [ "$HOOK_EVENT" = "StopFailure" ]; then
   echo "[$TIMESTAMP] StopFailure detected" >> "$PROJECT_DIR/.archipel/audit.log"
-  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-stop.sh\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"StopFailure detecte\"}"
+  _monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-stop\",\"type\":\"blocked\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"StopFailure detecte\"}"
   python3 << 'PYEOF'
 import json
 msg = "STOP FAILURE detecte — le turn s'est termine en erreur. Consulter .archipel/audit.log pour les tool failures. Action : diagnostiquer la cause racine avant de relancer."
@@ -97,6 +100,6 @@ print(json.dumps({'systemMessage': ' | '.join(parts)}))
 PYEOF
 fi
 
-_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-stop.sh\",\"type\":\"success\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"Session stop — git:${UNCOMMITTED:-0} uncommitted\"}"
+_monitor_push "{\"ts\":\"$_MONITOR_TS\",\"hook\":\"on-stop\",\"type\":\"success\",\"project\":\"$_MONITOR_PROJ\",\"msg\":\"Session stop — git:${UNCOMMITTED:-0} uncommitted\"}"
 
 exit 0
