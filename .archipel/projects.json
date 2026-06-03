@@ -36,6 +36,12 @@
       "path": "/Users/caussni/Dev/rougebleu-v9",
       "type": "perso",
       "cloud": "GCP"
+    },
+    {
+      "name": "rougebleu-v10",
+      "path": "/Users/caussni/Dev/rougebleu-v10",
+      "type": "perso",
+      "cloud": "GCP"
     }
   ]
 }
