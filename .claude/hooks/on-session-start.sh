@@ -6,9 +6,12 @@
 _MONITOR_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-$(pwd)}" rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-$(pwd)}")
 _MONITOR_FEED="$_MONITOR_ROOT/tasks/live-events.jsonl"
 _MONITOR_TS=$(date -u +%H:%M:%S)
-_MONITOR_PROJ=$(python3 -c \
-  "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))" \
-  2>/dev/null || echo "?")
+_TARGET_ACTIVE=$(cat "$_MONITOR_ROOT/.archipel/active-build-target" 2>/dev/null)
+if [ -n "$_TARGET_ACTIVE" ] && [ -f "$_TARGET_ACTIVE/.archipel/project.json" ]; then
+  _MONITOR_PROJ=$(python3 -c     "import sys,json; print(json.load(open('$_TARGET_ACTIVE/.archipel/project.json')).get('name','?'))"     2>/dev/null || echo "?")
+else
+  _MONITOR_PROJ=$(python3 -c     "import sys,json; print(json.load(open('$_MONITOR_ROOT/.archipel/project.json')).get('name','?'))"     2>/dev/null || echo "?")
+fi
 _monitor_push() {
   echo "$1" >> "$_MONITOR_FEED" 2>/dev/null || true
   _TARGET_FILE="$_MONITOR_ROOT/.archipel/active-build-target"
