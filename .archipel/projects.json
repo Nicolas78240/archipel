@@ -18,5 +18,18 @@
       "type": "clubmed",
       "cloud": "Azure"
     }
+    ,
+    {
+      "name": "rougebleu-v7",
+      "path": "/Users/caussni/Dev/rougebleu-v7",
+      "type": "perso",
+      "cloud": "GCP"
+    },
+    {
+      "name": "rougebleu-v8",
+      "path": "/Users/caussni/Dev/rougebleu-v8",
+      "type": "perso",
+      "cloud": "GCP"
+    }
   ]
 }
