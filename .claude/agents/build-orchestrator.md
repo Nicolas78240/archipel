@@ -857,14 +857,15 @@ Attendre les **5 JSON** de retour.
 TANT QUE (findings critiques > 0 OU findings majeurs > 0) :
 
   # ── Archipel Live : signal rework ──────────────────────────────
-  # Émettre un event rework dans le feed pour que le dashboard l'affiche
+  # Logique : la review a trouvé des findings → on retourne corriger le code
+  # Dans le pipeline Archipel Live : from="review" to="feature"
+  # (indépendant du milestone courant — c'est toujours review→feature pour une correction de code)
   _PROJ_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
   _FEED="$_PROJ_DIR/tasks/live-events.jsonl"
   _TS=$(date -u +%H:%M:%S)
   _PROJ=$(python3 -c "import json; print(json.load(open('$_PROJ_DIR/.archipel/project.json')).get('name','?'))" 2>/dev/null || echo "?")
-  # Détecter le milestone courant (source du rework)
-  _REWORK_FROM=$(python3 -c "import json; d=json.load(open('.archipel/build-state.json')); print(d.get('current','feature'))" 2>/dev/null || echo "feature")
-  echo "{\"ts\":\"$_TS\",\"hook\":\"build-orchestrator\",\"type\":\"blocked\",\"project\":\"$_PROJ\",\"msg\":\"Findings critiques/majeurs → REWORK\",\"rework\":{\"from\":\"review\",\"to\":\"$_REWORK_FROM\"}}" >> "$_FEED" 2>/dev/null || true
+  _MILESTONE=$(python3 -c "import json; d=json.load(open('.archipel/build-state.json')); print(d.get('current','?'))" 2>/dev/null || echo "?")
+  echo "{\"ts\":\"$_TS\",\"hook\":\"build-orchestrator\",\"type\":\"blocked\",\"project\":\"$_PROJ\",\"agent\":\"review\",\"msg\":\"$_MILESTONE : findings critiques → REWORK /feature\",\"rework\":{\"from\":\"review\",\"to\":\"feature\"}}" >> "$_FEED" 2>/dev/null || true
   # ─────────────────────────────────────────────────────────────
 
   Pour chaque finding :
