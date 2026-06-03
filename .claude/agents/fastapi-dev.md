@@ -184,6 +184,8 @@ TANT QUE (ruff check KO) :
 - `str` pour les dates venant d'APIs externes — toujours `date.fromisoformat()`
 - httpx sans `follow_redirects=True` et sans `timeout`
 - `scalars().all()` sans `.limit()` — toujours paginer
+- `Decimal` dans les schémas Pydantic pour les colonnes NUMERIC PostgreSQL — utiliser `float` à la place. `Decimal` est sérialisé en string par FastAPI → crash `.toFixed()` côté TypeScript. Règle : `gaa: float | None = None`, pas `gaa: Decimal | None = None`
+- Valeurs de saisons/dates en dur dans le smoke test — vérifier la période actuelle (hors-saison = l'API NHL peut retourner 0 standings pour today()). Toujours passer une date explicite de fin de saison régulière si hors-saison
 
 ## Critère de sortie
 

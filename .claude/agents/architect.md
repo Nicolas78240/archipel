@@ -144,6 +144,9 @@ Retourner exactement ce bloc JSON (sera parsé par l'orchestrateur) :
 - Jamais d'accès DB direct dans les services (passer par les repositories)
 - Jamais de `useEffect` pour fetcher des données
 - Jamais de migration manuelle — toujours Prisma migrate ou Alembic
+- Jamais `dynamic({ ssr: false })` dans un Server Component Next.js → créer un wrapper `"use client"` dédié
+- Colonnes NUMERIC PostgreSQL → `float` dans les schémas Pydantic (pas `Decimal`) → number JSON côté TypeScript
+- Les helpers `api.ts` doivent normaliser la réponse brute → les pages ne touchent jamais à la structure interne (pas de `data.items`, toujours `data.data` ou array directement)
 
 ## Critère de sortie
 

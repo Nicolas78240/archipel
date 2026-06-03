@@ -226,10 +226,29 @@ Retourner : "bug_resolved": true/false, "screenshot_description": "..."
 - Couleurs/valeurs hardcodées quand un token design system existe
 - Modifier les fichiers dans `components/ui/` — toujours wrapper dans `components/features/`
 - `git add .` — l'orchestrateur fait le commit, pas cet agent
+- `dynamic({ ssr: false })` dans un Server Component — créer un wrapper `"use client"` dédié qui contient le `dynamic()`
+- Accéder à la structure interne de l'API dans les pages (`data.items`, `response.results`) — les helpers `api.ts` doivent normaliser et retourner directement le tableau ou l'objet attendu
+- Présupposer que `fetchAPI<Type>()` retourne exactement `Type` — le JSON runtime peut diverger du type TypeScript. Valider les cas `Array.isArray()` et `.data ?? []` dans les helpers
+
+## Vérification de rendu obligatoire après implémentation
+
+Après avoir implémenté les pages, vérifier que chaque page se rend avec de vraies données — pas juste que `tsc` passe :
+
+```bash
+PORT=$(cat .archipel/project.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('ports',{}).get('web',3000))")
+for PAGE in "" games standings roster; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/$PAGE")
+  CONTENT=$(curl -s "http://localhost:$PORT/$PAGE" | grep -c "TypeError\|ReferenceError" || true)
+  echo "$PAGE → HTTP $STATUS | Erreurs JS: $CONTENT"
+done
+```
+
+Si une page retourne HTTP 500 ou contient `TypeError` → déboguer avant de marquer la tâche terminée.
 
 ## Critère de sortie
 
 - Tous les fichiers du plan créés/modifiés
 - `tsc --noEmit` : 0 erreur
 - `eslint` : 0 warning, 0 erreur
+- Pages principales : HTTP 200, zéro TypeError dans le rendu SSR
 - JSON de retour produit
