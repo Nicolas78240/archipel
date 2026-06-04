@@ -1,8 +1,10 @@
 # /bootstrap — Wizard nouveau projet
 
 Lance le wizard d'initialisation pour un nouveau projet Archipel.
-Pose 5 questions, écrit `.archipel/project.json`, crée la structure monorepo,
-et installe les commandes + skills Archipel dans le projet.
+**Détecte automatiquement si un PRD existe** et adapte le mode en conséquence :
+- **Mode PRD** (`docs/PRD.md` présent) → extrait tout depuis le PRD, aucune question
+- **Mode wizard** (projet vierge) → pose 5 questions interactives
+
 S'arrête quand `project.json` existe, la structure est créée et les commandes sont en place.
 
 ---
@@ -19,7 +21,83 @@ export ARCHIPEL_HOME=/Users/caussni/Dev/Archipel
 
 ## Protocole d'exécution
 
-### Étape 1 — Poser les 5 questions (AskUserQuestion, max 4 à la fois)
+### Étape 0 — Détecter le mode
+
+```bash
+PRD_EXISTS=$(test -f docs/PRD.md && echo "OUI" || echo "NON")
+echo "PRD détecté : $PRD_EXISTS"
+```
+
+**Si `PRD_EXISTS == OUI` → Mode PRD (sauter Étape 1, aller directement Étape 1-PRD)**
+**Si `PRD_EXISTS == NON` → Mode wizard (continuer Étape 1 normale)**
+
+---
+
+### Étape 1-PRD — Extraire les infos depuis docs/PRD.md (mode PRD uniquement)
+
+Lire `docs/PRD.md` et extraire automatiquement :
+
+```python
+# Extraction depuis le PRD
+import re
+
+prd = open('docs/PRD.md').read()
+
+# Nom du projet (depuis le titre H1 ou le nom du dossier courant)
+name_match = re.search(r'^#\s+(?:PRD\s+—\s+)?(.+?)$', prd, re.MULTILINE)
+PROJECT_NAME = name_match.group(1).strip() if name_match else os.path.basename(os.getcwd())
+
+# Description (première ligne non-vide après le titre)
+desc_match = re.search(r'\*\*(?:Application|Projet|Description|Vision)\*\*\s*:?\s*(.+?)$', prd, re.MULTILINE)
+if not desc_match:
+    # Fallback : première phrase du paragraphe Vision
+    vision_match = re.search(r'##\s+\d+\.\s+Vision\s*\n+(.+?)\.', prd, re.DOTALL)
+    desc_match = vision_match
+PROJECT_DESC = desc_match.group(1).strip()[:100] if desc_match else PROJECT_NAME
+
+# Type (clubmed si mention Club Med / Azure / GitLab, sinon perso)
+PROJECT_TYPE = "clubmed" if re.search(r'club.?med|azure|gitlab', prd, re.IGNORECASE) else "perso"
+
+# Stack (chercher les mots-clés techniques)
+stack = []
+if re.search(r'next\.?js|react|frontend', prd, re.IGNORECASE): stack.append("nextjs")
+if re.search(r'fastapi|python|api', prd, re.IGNORECASE): stack.append("python-api")
+if re.search(r'worker|queue|async.job', prd, re.IGNORECASE): stack.append("workers")
+PROJECT_STACK = stack if stack else ["nextjs", "python-api"]
+
+# PostgreSQL (toujours cloud-managed si clubmed, self-hosted si perso avec docker)
+PROJECT_PG = "cloud-managed"
+
+print(f"Extrait du PRD :")
+print(f"  name        : {PROJECT_NAME}")
+print(f"  description : {PROJECT_DESC}")
+print(f"  type        : {PROJECT_TYPE}")
+print(f"  stack       : {PROJECT_STACK}")
+print(f"  postgresql  : {PROJECT_PG}")
+```
+
+Afficher un résumé à l'utilisateur et lui demander confirmation en une question :
+
+```
+AskUserQuestion :
+"Ces informations extraites du PRD sont-elles correctes ?
+  - Nom : <PROJECT_NAME>
+  - Type : <PROJECT_TYPE>
+  - Stack : <PROJECT_STACK>
+  Continuer avec ces valeurs ou ajuster ?"
+
+Options :
+  "✅ Correct — continuer"
+  "✏️ Ajuster le type (perso/clubmed)"
+  "✏️ Ajuster la stack"
+```
+
+Si l'utilisateur confirme → utiliser ces valeurs pour toute la suite.
+**Aller directement à l'Étape 2 en sautant Étape 1.**
+
+---
+
+### Étape 1 — Poser les 5 questions (AskUserQuestion — mode wizard uniquement)
 
 **Batch 1 (4 questions) :**
 1. **Nom du projet** — texte libre (suggestions : nom du repo, nom du domaine)
@@ -126,6 +204,26 @@ echo "✅ data-patterns.json créé — adapter pages[] et patterns[] au domaine
 ```
 
 **Important** : `patterns` doit contenir des termes qui apparaissent dans le HTML SSR quand les données sont présentes (noms propres, codes, labels visibles). Exemple pour un tracker NHL : `["MTL", "BUF", "Anderson"]`. Exemple pour un Gantt : `["Sprint", "Milestone", "2026"]`.
+
+**En mode PRD** : extraire les patterns depuis `docs/PRD.md` → section `data-patterns.json` si présente, sinon utiliser les mots-clés métier du PRD (noms d'entités, statuts, codes).
+
+### Étape 2b-ter — Générer `docs/tasks.md` depuis le PRD (mode PRD uniquement)
+
+**Si `docs/tasks.md` n'existe pas encore ET que `docs/PRD.md` est présent** :
+
+Lire la section **Milestones** du PRD et générer `docs/tasks.md` avec :
+- Un milestone par section PRD (M1, M2... ou noms métier)
+- Les tâches extraites de chaque milestone
+- Les gates `[EXEC]` extraits de la section "Gates [EXEC]" du PRD si présente
+- Toutes les tâches à `[ ]` (non cochées)
+
+```python
+# Exemple de génération depuis le PRD
+# L'agent lit docs/PRD.md section "Milestones" et reproduit
+# le backlog en format tasks.md avec [ ] et [EXEC] tags
+```
+
+**Si `docs/tasks.md` existe déjà** → ne pas écraser, utiliser tel quel.
 
 ### Étape 2c — Enregistrer le projet dans Archipel Monitor
 
