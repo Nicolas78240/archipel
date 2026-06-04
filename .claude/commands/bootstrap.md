@@ -5,7 +5,9 @@ Lance le wizard d'initialisation pour un nouveau projet Archipel.
 - **Mode PRD** (`docs/PRD.md` présent) → extrait tout depuis le PRD, aucune question
 - **Mode wizard** (projet vierge) → pose 5 questions interactives
 
-S'arrête quand `project.json` existe, la structure est créée et les commandes sont en place.
+**Toujours idempotent** : peut être relancé à tout moment sur un projet existant.
+Commence par un audit complet (Étape 0) avant toute action.
+Ne s'arrête jamais prématurément — même si `project.json` existe déjà.
 
 ---
 
