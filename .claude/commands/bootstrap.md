@@ -21,11 +21,69 @@ export ARCHIPEL_HOME=/Users/caussni/Dev/Archipel
 
 ## Protocole d'exécution
 
-### Étape 0 — Détecter le mode
+### Étape 0 — Audit de l'état existant (TOUJOURS en premier)
+
+Avant toute action, inspecter ce qui existe déjà et produire un rapport :
+
+```python
+import os, json
+
+PROJECT_DIR = os.getcwd()
+ARCHIPEL_HOME = os.environ.get("ARCHIPEL_HOME", "/Users/caussni/Dev/Archipel")
+
+checks = {
+    # Fondation
+    "docs/PRD.md":                     os.path.exists(f"{PROJECT_DIR}/docs/PRD.md"),
+    "docs/tasks.md":                   os.path.exists(f"{PROJECT_DIR}/docs/tasks.md"),
+    ".archipel/project.json":          os.path.exists(f"{PROJECT_DIR}/.archipel/project.json"),
+    ".archipel/data-patterns.json":    os.path.exists(f"{PROJECT_DIR}/.archipel/data-patterns.json"),
+    # Archipel
+    ".claude/hooks/ (16 fichiers)":    len(os.listdir(f"{PROJECT_DIR}/.claude/hooks")) >= 16 if os.path.exists(f"{PROJECT_DIR}/.claude/hooks") else False,
+    ".claude/agents/ (38 agents)":     len(os.listdir(f"{PROJECT_DIR}/.claude/agents")) >= 38 if os.path.exists(f"{PROJECT_DIR}/.claude/agents") else False,
+    ".claude/commands/":               os.path.exists(f"{PROJECT_DIR}/.claude/commands"),
+    ".claude/settings.json":           os.path.exists(f"{PROJECT_DIR}/.claude/settings.json"),
+    "CLAUDE.md":                       os.path.exists(f"{PROJECT_DIR}/CLAUDE.md"),
+    "skills/":                         os.path.exists(f"{PROJECT_DIR}/skills"),
+    ".mcp.json":                       os.path.exists(f"{PROJECT_DIR}/.mcp.json"),
+    "tasks/lessons.md":                os.path.exists(f"{PROJECT_DIR}/tasks/lessons.md"),
+    "tasks/live-events.jsonl":         os.path.exists(f"{PROJECT_DIR}/tasks/live-events.jsonl"),
+    # Structure
+    "apps/web/":                       os.path.exists(f"{PROJECT_DIR}/apps/web"),
+    "apps/api/":                       os.path.exists(f"{PROJECT_DIR}/apps/api"),
+    ".gitignore":                      os.path.exists(f"{PROJECT_DIR}/.gitignore"),
+}
+
+# Vérifications supplémentaires sur project.json
+pj_path = f"{PROJECT_DIR}/.archipel/project.json"
+pj_ok = {}
+if os.path.exists(pj_path):
+    pj = json.load(open(pj_path))
+    pj_ok["project.json → ports définis"]  = "ports" in pj
+    pj_ok["project.json → stage défini"]   = "stage" in pj
+    pj_ok["project.json → services définis"] = "web" in pj.get("services",{})
+
+ok    = {k: v for k, v in {**checks, **pj_ok}.items() if v}
+missing = {k: v for k, v in {**checks, **pj_ok}.items() if not v}
+
+print("=" * 50)
+print("AUDIT BOOTSTRAP — état actuel")
+print("=" * 50)
+print(f"\n✅ Présent ({len(ok)}) :")
+for k in ok: print(f"   {k}")
+print(f"\n❌ Manquant ({len(missing)}) :")
+for k in missing: print(f"   {k}")
+print(f"\n→ Actions nécessaires : {len(missing)}")
+```
+
+**Afficher le rapport à l'utilisateur.** Puis :
+- Si tout est ✅ → afficher "Projet déjà complet — rien à faire" et s'arrêter
+- Si manquants → continuer les étapes suivantes **uniquement pour les éléments manquants**
+- Chaque étape vérifie si son livrable existe déjà avant d'agir (idempotent)
+
+**Détecter le mode :**
 
 ```bash
 PRD_EXISTS=$(test -f docs/PRD.md && echo "OUI" || echo "NON")
-echo "PRD détecté : $PRD_EXISTS"
 ```
 
 **Si `PRD_EXISTS == OUI` → Mode PRD (sauter Étape 1, aller directement Étape 1-PRD)**
@@ -332,7 +390,9 @@ Format :
 EOF
 ```
 
-### Étape 3b — Installer les commandes et skills Archipel
+### Étape 3b — Installer les commandes et skills Archipel (idempotent)
+
+Chaque action vérifie si son livrable est déjà présent avant de l'écraser.
 
 ```bash
 ARCHIPEL_HOME="${ARCHIPEL_HOME:-/Users/caussni/Dev/Archipel}"
@@ -341,46 +401,60 @@ PROJECT_PATH=$(pwd)
 # Vérifier que ARCHIPEL_HOME est accessible
 if [ ! -d "$ARCHIPEL_HOME" ]; then
   echo "❌ ARCHIPEL_HOME non trouvé : $ARCHIPEL_HOME"
-  echo "   Définir : export ARCHIPEL_HOME=/chemin/vers/archipel"
   exit 1
 fi
 
-# Copier les commandes Archipel
-mkdir -p .claude
-cp -r "$ARCHIPEL_HOME/.claude/commands" .claude/
-echo "✅ Commandes Archipel copiées dans .claude/commands/"
+mkdir -p .claude .archipel
 
-# Copier les hooks Archipel (version live — pas les templates statiques)
+# Hooks — TOUJOURS copier (version live, peut avoir été mis à jour)
 cp -r "$ARCHIPEL_HOME/.claude/hooks" .claude/
-echo "✅ Hooks Archipel copiés dans .claude/hooks/ (version live)"
+HOOKS_COUNT=$(ls .claude/hooks/*.sh 2>/dev/null | wc -l | tr -d ' ')
+echo "✅ Hooks copiés ($HOOKS_COUNT fichiers)"
 
-# Copier les agents Archipel
+# Agents — TOUJOURS copier (version live, peut avoir été mis à jour)
 cp -r "$ARCHIPEL_HOME/.claude/agents" .claude/
-echo "✅ Agents Archipel copiés dans .claude/agents/ (version live)"
+AGENTS_COUNT=$(ls .claude/agents/*.md 2>/dev/null | wc -l | tr -d ' ')
+echo "✅ Agents copiés ($AGENTS_COUNT agents)"
 
-# Copier les skills
-cp -r "$ARCHIPEL_HOME/skills" .
-echo "✅ Skills Archipel copiés dans skills/"
+# Commands — copier si absent ou incomplet
+CMD_COUNT=$(ls .claude/commands/*.md 2>/dev/null | wc -l | tr -d ' ')
+if [ "$CMD_COUNT" -lt 10 ]; then
+  cp -r "$ARCHIPEL_HOME/.claude/commands" .claude/
+  echo "✅ Commands Archipel copiées"
+else
+  echo "ℹ️  Commands déjà présentes ($CMD_COUNT fichiers) — skip"
+fi
 
-# Copier les templates (configs prêtes à l'emploi par type/stack)
-cp -r "$ARCHIPEL_HOME/.archipel/templates" .archipel/
-echo "✅ Templates Archipel copiés dans .archipel/templates/"
+# Skills — copier si absent
+if [ ! -d "skills" ] || [ -z "$(ls skills/*.md 2>/dev/null)" ]; then
+  cp -r "$ARCHIPEL_HOME/skills" .
+  echo "✅ Skills Archipel copiés"
+else
+  echo "ℹ️  Skills déjà présents — skip"
+fi
 
-# Copier et adapter settings.json
+# Templates — copier si absent
+if [ ! -d ".archipel/templates" ]; then
+  cp -r "$ARCHIPEL_HOME/.archipel/templates" .archipel/
+  echo "✅ Templates copiés"
+else
+  echo "ℹ️  Templates déjà présents — skip"
+fi
+
+# settings.json — copier et adapter si absent ou si hooks ont changé
 cp "$ARCHIPEL_HOME/.claude/settings.json" .claude/settings.json
 sed -i '' "s|$ARCHIPEL_HOME|$PROJECT_PATH|g" .claude/settings.json
-echo "✅ .claude/settings.json configuré pour $PROJECT_PATH"
+echo "✅ .claude/settings.json configuré"
 
-# Copier .mcp.json (Figma + Atlassian MCPs)
-cp "$ARCHIPEL_HOME/.mcp.json" .mcp.json
-echo "✅ .mcp.json copié"
-echo "   → Configurer les variables d'env si pas encore fait :"
-echo "     export FIGMA_ACCESS_TOKEN=fig_xxx"
-echo "     export ATLASSIAN_URL=https://xxx.atlassian.net"
-echo "     export ATLASSIAN_EMAIL=xxx"
-echo "     export ATLASSIAN_API_TOKEN=xxx"
+# .mcp.json — copier si absent
+if [ ! -f ".mcp.json" ]; then
+  cp "$ARCHIPEL_HOME/.mcp.json" .mcp.json
+  echo "✅ .mcp.json copié"
+else
+  echo "ℹ️  .mcp.json déjà présent — skip"
+fi
 
-# Générer CLAUDE.md — lu automatiquement par Claude Code à chaque session
+# Générer CLAUDE.md — TOUJOURS régénérer (ports peuvent avoir changé)
 PROJECT_NAME=$(python3 -c "import json; print(json.load(open('.archipel/project.json'))['name'])" 2>/dev/null || echo "<nom>")
 PORT_WEB=$(python3 -c "import json; print(json.load(open('.archipel/project.json')).get('ports',{}).get('web',3000))" 2>/dev/null || echo "3000")
 PORT_API=$(python3 -c "import json; print(json.load(open('.archipel/project.json')).get('ports',{}).get('api',8000))" 2>/dev/null || echo "8000")
@@ -494,6 +568,40 @@ echo "   ⚠️  Règle d'or : wrapper tout contenu app avec --spacing: 0.25rem"
 echo "   Voir skills/cm-trident.md → pattern AppLayout complet"
 ```
 
+### Étape 3c-bis — Générer tasks.md si absent (mode PRD)
+
+**Si `docs/tasks.md` n'existe pas ET que `docs/PRD.md` est présent** :
+
+Lire `docs/PRD.md`, trouver la section **Milestones** et générer `docs/tasks.md` :
+- Reproduire chaque milestone avec ses tâches à `[ ]`
+- Conserver les `[EXEC]` tags si présents dans le PRD
+- Ne PAS écraser si `tasks.md` existe déjà
+
+```bash
+if [ ! -f "docs/tasks.md" ] && [ -f "docs/PRD.md" ]; then
+  echo "⚠️  docs/tasks.md absent — génération depuis le PRD..."
+  # Lire le PRD et extraire la section Milestones → générer tasks.md
+  # L'agent extrait les milestones M1..M6 et leurs tâches, les convertit en [ ] / [EXEC]
+  echo "✅ docs/tasks.md généré depuis PRD"
+else
+  echo "ℹ️  docs/tasks.md déjà présent ou pas de PRD — skip"
+fi
+```
+
+### Étape 3c-ter — Générer data-patterns.json si absent
+
+**Si `.archipel/data-patterns.json` n'existe pas** :
+
+En mode PRD : extraire les entités métier du PRD (noms de statuts, codes, labels visibles dans les pages) et générer `data-patterns.json`.
+
+```bash
+if [ ! -f ".archipel/data-patterns.json" ]; then
+  # Extraire depuis le PRD : section data-patterns.json si présente, sinon entités métier
+  # Générer le fichier avec pages[] et patterns[]
+  echo "✅ .archipel/data-patterns.json généré"
+fi
+```
+
 ### Étape 4 — Adapter les fichiers CI selon le type
 
 **Si `type == perso` :**
@@ -550,9 +658,21 @@ Si la validation échoue, corriger et relancer.
 
 ## Critère de sortie
 
-- `.archipel/project.json` valide avec `services.web`, `services.api`, `gcp_region`, `azure_resource_group`
-- Structure monorepo créée (`apps/web/`, `apps/api/`, `workers/`, `shared/db/`)
-- `tasks/lessons.md` et `tasks/session-log.md` initialisés
-- `.claude/commands/` et `skills/` présents dans le projet
-- `.claude/settings.json` et `.mcp.json` configurés
-- Premier commit git effectué
+Relancer l'audit de l'Étape 0 — **tous les items doivent être ✅** :
+
+| Item | Gate |
+|------|------|
+| `.archipel/project.json` | valide avec ports, stage, services |
+| `.claude/hooks/` | 16 fichiers (version live Archipel) |
+| `.claude/agents/` | 38 agents (avec signaux Archipel Live) |
+| `.claude/settings.json` | chemins adaptés au projet |
+| `CLAUDE.md` | instruction "Invoque l'agent build-orchestrator" |
+| `docs/tasks.md` | backlog avec `[ ]` et `[EXEC]` tags |
+| `.archipel/data-patterns.json` | pages et patterns métier définis |
+| `tasks/lessons.md` | initialisé |
+| `tasks/live-events.jsonl` | fichier vide créé |
+| Structure monorepo | `apps/web/`, `apps/api/` présents |
+| Git | au moins 1 commit |
+
+**Si un item est ❌ après bootstrap → corriger et re-exécuter l'étape correspondante.**
+Le bootstrap est idempotent — relancer est sans risque.
